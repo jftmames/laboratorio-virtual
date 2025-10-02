@@ -55,12 +55,12 @@
                 <div class="border-t border-gray-700 mt-6 pt-4">
                     <h4 class="font-bold text-lg text-lime-300 mb-2">Registro de Eventos</h4>
                     <div id="log-panel" class="font-fira text-sm bg-gray-900 p-2 rounded-lg h-48 overflow-y-auto">
-                        <p class="text-gray-500">Esperando envío...</p>
+                        <p class="text-gray-500">Selecciona origen/destino y pulsa "Enviar".</p>
                     </div>
                 </div>
 
                 <div class="border-t border-gray-700 mt-4 pt-4">
-                     <button id="reset-btn" class="btn-action w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Simulación</button>
+                     <button id="reset-btn" class="btn-action w-full bg-red-600 hover:red-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Simulación</button>
                 </div>
             </aside>
         </main>
@@ -68,9 +68,9 @@
         <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
             <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Cómo viajan los datos en una red?</h3>
             <p class="text-gray-300 leading-relaxed">
-                Cuando envías datos por internet, no viajan como un flujo continuo, sino que se dividen en pequeños trozos llamados **paquetes**. Cada paquete contiene la dirección IP de origen, la de destino y una parte de los datos.
+                Cuando envías datos por internet, se dividen en **paquetes**. Cada paquete contiene la dirección IP de origen y destino.
                 <br><br>
-                Los **routers** son los carteros de internet. Cada uno tiene una "tabla de enrutamiento" que le dice cuál es el siguiente "salto" más cercano para que el paquete llegue a su destino. En esta simulación, puedes ver cómo un paquete viaja de router en router, siguiendo las reglas de sus tablas, hasta que finalmente alcanza el ordenador de destino.
+                Los **routers** son los carteros de internet. Cada uno tiene una "tabla de enrutamiento" que le dice cuál es el siguiente "salto" para que el paquete llegue a su destino. En esta simulación, la ruta está configurada para ser la más larga posible y así poder observar cada decisión. Sigue el registro de eventos para ver cómo el paquete viaja de router en router.
             </p>
         </section>
     </div>
@@ -93,6 +93,7 @@
             let packets = [];
             let animationFrameId;
 
+            // Defines the position and properties of each device in the network.
             const networkLayout = {
                 'PC-A': { x: 0.1, y: 0.2, type: 'pc', ip: '192.168.1.10' },
                 'PC-B': { x: 0.1, y: 0.8, type: 'pc', ip: '192.168.1.20' },
@@ -102,17 +103,33 @@
                 'PC-C': { x: 0.9, y: 0.5, type: 'pc', ip: '172.16.0.15' },
             };
             
+            // Defines the physical connections between devices.
             const connections = [
                 ['PC-A', 'Router-1'], ['PC-B', 'Router-1'],
                 ['Router-1', 'Router-2'], ['Router-1', 'Router-3'],
                 ['Router-2', 'Router-3'], ['Router-2', 'PC-C'], ['Router-3', 'PC-C']
             ];
 
-            // Simplified routing tables: { destination_network: next_hop_ip }
+            // --- ROUTING LOGIC ---
+            // These tables determine the path a packet will take.
+            // They are intentionally set up to create the longest possible path for demonstration.
             const routingTables = {
-                'Router-1': { '10.0.0.0/24': 'Router-2', '172.16.0.0/16': 'Router-3' },
-                'Router-2': { '192.168.1.0/24': 'Router-1', '172.16.0.0/16': 'PC-C' },
-                'Router-3': { '192.168.1.0/24': 'Router-1', '172.16.0.0/16': 'PC-C' }
+                'Router-1': {
+                    // To get to PC-C's network (172.16...), the next hop is Router-2.
+                    '172.16.': 'Router-2'
+                },
+                'Router-2': {
+                    // To get back to PC-A/B's network, the next hop is Router-1.
+                    '192.168.': 'Router-1',
+                    // To get to PC-C's network, we take the scenic route via Router-3.
+                    '172.16.': 'Router-3'
+                },
+                'Router-3': {
+                    // To get back to PC-A/B's network, the next hop is Router-1.
+                    '192.168.': 'Router-1',
+                    // From here, PC-C is directly connected.
+                    '172.16.': 'PC-C'
+                }
             };
 
             function setupCanvas() {
@@ -135,13 +152,15 @@
                     controls.sourceSelect.innerHTML += `<option value="${ip}">${ip}</option>`;
                     controls.destSelect.innerHTML += `<option value="${ip}">${ip}</option>`;
                 });
-                controls.destSelect.selectedIndex = 1;
+                // Default to the most interesting path: PC-A to PC-C
+                controls.sourceSelect.value = '192.168.1.10';
+                controls.destSelect.value = '172.16.0.15';
             }
 
             function addLog(message, color = 'text-gray-300') {
                 const p = document.createElement('p');
                 p.className = `font-fira ${color}`;
-                p.textContent = `> ${message}`;
+                p.innerHTML = `> ${message}`; // Use innerHTML to allow for bold tags
                 logPanel.appendChild(p);
                 logPanel.scrollTop = logPanel.scrollHeight;
             }
@@ -167,8 +186,8 @@
                 ctx.strokeStyle = '#4b5563';
                 ctx.lineWidth = 2;
                 connections.forEach(([from, to]) => {
-                    const nodeFrom = Object.values(nodes).find(n => n.id === from);
-                    const nodeTo = Object.values(nodes).find(n => n.id === to);
+                    const nodeFrom = findNodeById(from);
+                    const nodeTo = findNodeById(to);
                     ctx.beginPath();
                     ctx.moveTo(nodeFrom.x, nodeFrom.y);
                     ctx.lineTo(nodeTo.x, nodeTo.y);
@@ -199,24 +218,30 @@
             }
 
             function getNextHop(currentNode, destIp) {
-                if (currentNode.type !== 'router') return findNodeByIp(destIp);
-                const table = routingTables[currentNode.id];
-                // Extremely simplified network matching
-                let nextHopId = null;
-                if(destIp.startsWith('192.168.1.')) nextHopId = table['192.168.1.0/24'];
-                if(destIp.startsWith('10.0.0.')) nextHopId = table['10.0.0.0/24'];
-                if(destIp.startsWith('172.16.0.')) nextHopId = table['172.16.0.0/16'];
-                
-                // If destination is directly connected
-                if(currentNode.id === 'Router-2' && destIp === '172.16.0.15') return findNodeById('PC-C');
-                if(currentNode.id === 'Router-3' && destIp === '172.16.0.15') return findNodeById('PC-C');
+                // PCs always send to their default gateway (the router they are connected to).
+                if (currentNode.type === 'pc') {
+                    const connection = connections.find(c => c.includes(currentNode.id));
+                    const gatewayId = connection[0] === currentNode.id ? connection[1] : connection[0];
+                    return findNodeById(gatewayId);
+                }
 
-
-                return findNodeById(nextHopId);
+                // Routers use their routing tables to decide the next hop.
+                if (currentNode.type === 'router') {
+                    const table = routingTables[currentNode.id];
+                    let nextHopId = null;
+                    for (const prefix in table) {
+                        if (destIp.startsWith(prefix)) {
+                            nextHopId = table[prefix];
+                            break;
+                        }
+                    }
+                    if (nextHopId) return findNodeById(nextHopId);
+                }
+                return null; // Packet is dropped if no route is found
             }
 
             function updatePackets() {
-                packets.forEach((p, index) => {
+                packets.forEach(p => {
                     if (p.arrived) return;
 
                     const dx = p.target.x - p.x;
@@ -230,22 +255,22 @@
 
                         if (p.currentNode.ip === p.destIp) {
                             p.arrived = true;
-                            addLog(`Paquete llegó a ${p.destIp}!`, 'text-lime-400');
+                            addLog(`¡Paquete llegó a <b class="text-lime-400">${p.destIp}</b>!`, 'text-lime-400');
+                            controls.sendBtn.disabled = false;
                             return;
                         }
 
                         if (p.currentNode.type === 'router') {
-                            addLog(`Paquete en ${p.currentNode.id}. Reenviando...`);
-                            p.target = getNextHop(p.currentNode, p.destIp);
-                             if (!p.target) {
-                                p.arrived = true; // Dropped
-                                addLog(`Paquete descartado en ${p.currentNode.id}: No hay ruta.`, 'text-red-500');
-                             }
-                        } else {
-                            // Should not happen unless it's the destination
-                            p.arrived = true;
+                            const nextHop = getNextHop(p.currentNode, p.destIp);
+                            if (nextHop) {
+                                p.target = nextHop;
+                                addLog(`Paquete en <b class="text-yellow-400">${p.currentNode.id}</b>. Tabla dice: para ${p.destIp}, ir a <b class="text-yellow-400">${p.target.id}</b>.`);
+                            } else {
+                                p.arrived = true;
+                                addLog(`Paquete descartado en <b class="text-red-500">${p.currentNode.id}</b>: No hay ruta.`, 'text-red-500');
+                                controls.sendBtn.disabled = false;
+                            }
                         }
-
                     } else {
                         p.x += (dx / dist) * p.speed;
                         p.y += (dy / dist) * p.speed;
@@ -269,25 +294,34 @@
                     return;
                 }
 
-                logPanel.innerHTML = '';
-                addLog(`Creando paquete de ${sourceIp} a ${destIp}`);
-
-                const startNode = findNodeByIp(sourceIp);
+                handleReset(); // Clear previous packets and logs
+                controls.sendBtn.disabled = true;
                 
-                const newPacket = {
+                const startNode = findNodeByIp(sourceIp);
+                const firstHop = getNextHop(startNode, destIp);
+
+                if (!firstHop) {
+                     addLog('Error: No se puede encontrar la ruta inicial.', 'text-red-500');
+                     controls.sendBtn.disabled = false;
+                     return;
+                }
+                addLog(`Paquete creado. Origen: <b class="text-blue-400">${sourceIp}</b>, Destino: <b class="text-blue-400">${destIp}</b>.`);
+                addLog(`PC envía el paquete a su router: <b class="text-yellow-400">${firstHop.id}</b>.`);
+                
+                packets.push({
                     x: startNode.x, y: startNode.y,
                     sourceIp, destIp,
                     currentNode: startNode,
-                    target: findNodeById('Router-1'), // First hop for PCs
-                    speed: 2,
+                    target: firstHop,
+                    speed: 2.5,
                     arrived: false
-                };
-                packets.push(newPacket);
+                });
             }
             
             function handleReset(){
                 packets = [];
-                logPanel.innerHTML = '<p class="text-gray-500">Esperando envío...</p>';
+                logPanel.innerHTML = '<p class="text-gray-500">Selecciona origen/destino y pulsa "Enviar".</p>';
+                controls.sendBtn.disabled = false;
             }
 
             // --- Init ---
@@ -307,3 +341,4 @@
     </script>
 </body>
 </html>
+
