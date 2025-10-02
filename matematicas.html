@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas ¡Al Estilo Atómico!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fef3c7; /* amber-100 for old paper feel */
+            /* Ben-Day dots effect */
+            background-image: radial-gradient(#fde68a 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+        .font-bangers {
+            font-family: 'Bangers', cursive;
+            letter-spacing: 1px;
+        }
+        .comic-panel {
+            background-color: white;
+            border: 4px solid black;
+            box-shadow: 8px 8px 0px black;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .comic-panel:hover {
+            transform: scale(1.03) rotate(1deg);
+            box-shadow: 12px 12px 0px black;
+        }
+        .caption-box {
+            background-color: #fef08a; /* yellow-200 */
+            border: 3px solid black;
+            padding: 0.5rem 1rem;
+            transform: rotate(-2deg);
+            display: inline-block;
+        }
+        .title-splash {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            padding: 1rem 2rem;
+            border: 4px solid black;
+            clip-path: polygon(0% 0%, 100% 15%, 95% 100%, 5% 90%);
+            text-shadow: 3px 3px 0px black;
+        }
+    </style>
+</head>
+<body class="text-black p-4 md:p-8">
+
+    <div class="container mx-auto max-w-6xl">
+        <header class="text-center mb-12">
+            <div class="inline-block">
+                <div class="title-splash">
+                    <h1 class="text-5xl md:text-7xl font-bangers">¡¡MATEMÁTICAS ASOMBROSAS!!</h1>
+                </div>
+            </div>
+            <p class="caption-box font-bold text-xl mt-4">¡Una colección de aventuras numéricas!</p>
+        </header>
+
+        <a href="index.html" class="block font-bold text-lg mb-8 hover:underline">&larr; ¡Regresar al Laboratorio Secreto!</a>
+
+        <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            
+            <!-- Panel 1: Círculo Unitario -->
+            <a href="circulo_unitario.html" class="block comic-panel bg-sky-300">
+                <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡El Círculo Unitario!</h3>
+                    <p>¡Descubre los secretos de la trigonometría con este increíble dispositivo giratorio!</p>
+                </div>
+            </a>
+            
+            <!-- Panel 2: Parábolas -->
+            <a href="parabola.html" class="block comic-panel bg-red-400">
+                <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡El Graficador de Parábolas!</h3>
+                    <p>¡Controla los coeficientes y doblega las curvas a tu voluntad! ¡Poder cuadrático!</p>
+                </div>
+            </a>
+            
+            <!-- Panel 3: Monte Carlo Pi -->
+            <a href="monte_carlo_pi.html" class="block comic-panel bg-green-400">
+                <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡Aproximación de PI!</h3>
+                    <p>¡Usa el método de Monte Carlo para calcular el número más famoso del universo!</p>
+                </div>
+            </a>
+            
+            <!-- Panel 4: Fractales -->
+            <a href="fractal.html" class="block comic-panel bg-purple-400">
+                <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡Explorador de Fractales!</h3>
+                    <p>¡Viaja a las profundidades infinitas del Conjunto de Mandelbrot! ¡Alucinante!</p>
+                </div>
+            </a>
+            
+            <!-- Panel 5: Vectores 2D -->
+            <a href="vectores.html" class="block comic-panel bg-orange-400">
+                <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡Visualizador de Vectores!</h3>
+                    <p>¡Domina la suma y resta de fuerzas con este panel de control vectorial!</p>
+                </div>
+            </a>
+            
+            <!-- Panel 6: Transformaciones -->
+            <a href="transformaciones_geometricas.html" class="block comic-panel bg-teal-400">
+                 <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡Transformaciones Geométricas!</h3>
+                    <p>¡Rota, escala y mueve figuras con el poder de las matrices! ¡CIENCIA DEL FUTURO!</p>
+                </div>
+            </a>
+
+            <!-- Panel 7: Probabilidad -->
+            <a href="probabilidad_dados.html" class="block comic-panel bg-yellow-300">
+                 <div class="p-6">
+                    <h3 class="font-bangers text-3xl mb-2">¡Dados y Probabilidad!</h3>
+                    <p>¡Lanza miles de dados y observa cómo la campana de Gauss emerge de la nada!</p>
+                </div>
+            </a>
+            
+        </main>
+    </div>
+
+</body>
+</html>
+

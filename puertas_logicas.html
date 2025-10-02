@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informática | Puertas Lógicas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gate-palette-item {
+            cursor: grab;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .gate-palette-item:hover {
+            transform: scale(1.05);
+            background-color: #3f3f46; /* zinc-700 */
+        }
+        .gate-palette-item:active {
+            cursor: grabbing;
+        }
+        canvas {
+            background-color: #000;
+            background-image:
+                linear-gradient(rgba(45, 212, 191, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(45, 212, 191, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="informatica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Informática</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Puertas Lógicas</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <h3 class="text-xl font-bold text-lime-300 mb-4 text-center">Componentes</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <!-- Inputs -->
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="INPUT">
+                        <div class="text-3xl">🎚️</div>
+                        <div class="font-bold">Interruptor</div>
+                    </div>
+                    <!-- Outputs -->
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="OUTPUT">
+                        <div class="text-3xl">💡</div>
+                        <div class="font-bold">Bombilla</div>
+                    </div>
+                    <!-- Gates -->
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="AND">
+                        <div class="text-2xl font-mono font-black">AND</div>
+                    </div>
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="OR">
+                        <div class="text-2xl font-mono font-black">OR</div>
+                    </div>
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="NOT">
+                        <div class="text-2xl font-mono font-black">NOT</div>
+                    </div>
+                    <div class="gate-palette-item bg-zinc-800 p-3 rounded-lg text-center" data-type="XOR">
+                        <div class="text-2xl font-mono font-black">XOR</div>
+                    </div>
+                </div>
+                <button id="clear-btn" class="w-full mt-6 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Limpiar Circuito</button>
+                 <div class="border-t border-gray-700 mt-6 pt-4 text-gray-400">
+                    <h4 class="font-bold text-lime-300 text-lg mb-2">Instrucciones</h4>
+                    <ul class="list-disc list-inside space-y-2 text-sm">
+                        <li>Arrastra componentes al lienzo negro.</li>
+                        <li>Haz clic en un interruptor (🎚️) para cambiar su valor (0/1).</li>
+                        <li>Haz clic en un círculo (nodo) para iniciar un cable.</li>
+                        <li>Haz clic en otro nodo para completar la conexión.</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-0 overflow-hidden">
+                <canvas id="logicCanvas"></canvas>
+            </div>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">Fundamentos de la Lógica Digital</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Las puertas lógicas son los bloques de construcción de todos los circuitos digitales y procesadores. Operan con valores binarios (0 y 1, o falso y verdadero). Al combinarlas, se pueden crear circuitos complejos que realizan operaciones aritméticas, toman decisiones y almacenan datos. Este simulador te permite experimentar con las puertas más comunes para entender su comportamiento.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('logicCanvas');
+            const ctx = canvas.getContext('2d');
+            const paletteItems = document.querySelectorAll('.gate-palette-item');
+            const clearBtn = document.getElementById('clear-btn');
+            
+            let width, height;
+            let components = [];
+            let connections = [];
+            let nextId = 0;
+            
+            let draggingComponent = null;
+            let dragOffsetX, dragOffsetY;
+            let wiring = { active: false, fromNode: null };
+            let mousePos = { x: 0, y: 0 };
+
+            // --- Component Classes ---
+            class Component {
+                constructor(x, y) {
+                    this.id = nextId++;
+                    this.x = x;
+                    this.y = y;
+                    this.inputs = [];
+                    this.outputs = [];
+                }
+                
+                isMouseOver(x, y) {
+                    return x > this.x && x < this.x + this.width && y > this.y && y < this.y + this.height;
+                }
+
+                getNodeAt(x, y) {
+                    for (const node of [...this.inputs, ...this.outputs]) {
+                        const dx = x - node.x;
+                        const dy = y - node.y;
+                        if (dx * dx + dy * dy < node.radius * node.radius) {
+                            return node;
+                        }
+                    }
+                    return null;
+                }
+            }
+
+            class InputSwitch extends Component {
+                constructor(x, y) {
+                    super(x, y);
+                    this.type = 'INPUT';
+                    this.width = 60; this.height = 60;
+                    this.outputs = [{ component: this, x: this.x + this.width, y: this.y + this.height / 2, radius: 8, value: 0, isOutput: true }];
+                    this.value = 0;
+                }
+                
+                toggle() {
+                    this.value = 1 - this.value;
+                    this.outputs[0].value = this.value;
+                }
+                
+                draw(ctx) {
+                    ctx.fillStyle = this.value ? '#a3e635' : '#4b5563';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '24px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.value, this.x + this.width / 2, this.y + this.height / 2);
+                    this.drawNodes(ctx);
+                }
+
+                drawNodes(ctx) {
+                    this.outputs[0].x = this.x + this.width; this.outputs[0].y = this.y + this.height/2;
+                    ctx.beginPath();
+                    ctx.arc(this.outputs[0].x, this.outputs[0].y, this.outputs[0].radius, 0, 2 * Math.PI);
+                    ctx.fillStyle = this.outputs[0].value ? '#facc15' : '#4b5563';
+                    ctx.fill();
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.stroke();
+                }
+            }
+            
+            class OutputLight extends Component {
+                constructor(x, y) {
+                    super(x, y);
+                    this.type = 'OUTPUT';
+                    this.width = 60; this.height = 60;
+                    this.inputs = [{ component: this, x: this.x, y: this.y + this.height / 2, radius: 8, value: 0, isOutput: false }];
+                }
+                
+                evaluate() {
+                    // Value is set by incoming connection
+                }
+
+                draw(ctx) {
+                    ctx.fillStyle = this.inputs[0].value ? '#fde047' : '#374151';
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width/2, this.y + this.height/2, this.width/2.5, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = this.inputs[0].value ? '#facc15' : '#4b5563';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                    this.drawNodes(ctx);
+                }
+                
+                drawNodes(ctx) {
+                    this.inputs[0].x = this.x; this.inputs[0].y = this.y + this.height/2;
+                    ctx.beginPath();
+                    ctx.arc(this.inputs[0].x, this.inputs[0].y, this.inputs[0].radius, 0, 2 * Math.PI);
+                    ctx.fillStyle = this.inputs[0].value ? '#facc15' : '#4b5563';
+                    ctx.fill();
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.stroke();
+                }
+            }
+
+            class Gate extends Component {
+                 constructor(x, y) {
+                    super(x, y);
+                    this.width = 80; this.height = 50;
+                    this.outputs = [{ component: this, x: this.x + this.width, y: this.y + this.height/2, radius: 8, value: 0, isOutput: true }];
+                }
+
+                 draw(ctx) {
+                    ctx.fillStyle = '#374151';
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                    ctx.strokeRect(this.x, this.y, this.width, this.height);
+                    
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 18px Inter';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.type, this.x + this.width / 2, this.y + this.height / 2);
+
+                    this.drawNodes(ctx);
+                }
+                
+                 drawNodes(ctx) {
+                    this.outputs[0].x = this.x + this.width; this.outputs[0].y = this.y + this.height/2;
+                    
+                    for(let i=0; i < this.inputs.length; i++) {
+                        this.inputs[i].x = this.x;
+                        this.inputs[i].y = this.y + (this.height * (i + 1) / (this.inputs.length + 1));
+                    }
+                    
+                    [...this.inputs, ...this.outputs].forEach(node => {
+                        ctx.beginPath();
+                        ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+                        ctx.fillStyle = node.value ? '#facc15' : '#4b5563';
+                        ctx.fill();
+                        ctx.strokeStyle = '#9ca3af';
+                        ctx.stroke();
+                    });
+                }
+            }
+            
+            class AndGate extends Gate {
+                constructor(x, y) { super(x, y); this.type = 'AND'; this.inputs = [{}, {}]; }
+                evaluate() { this.outputs[0].value = (this.inputs[0].value && this.inputs[1].value) ? 1 : 0; }
+            }
+            class OrGate extends Gate {
+                constructor(x, y) { super(x, y); this.type = 'OR'; this.inputs = [{}, {}]; }
+                evaluate() { this.outputs[0].value = (this.inputs[0].value || this.inputs[1].value) ? 1 : 0; }
+            }
+            class NotGate extends Gate {
+                constructor(x, y) { super(x, y); this.type = 'NOT'; this.inputs = [{}]; this.height = 30; }
+                evaluate() { this.outputs[0].value = this.inputs[0].value ? 0 : 1; }
+            }
+             class XorGate extends Gate {
+                constructor(x, y) { super(x, y); this.type = 'XOR'; this.inputs = [{}, {}]; }
+                evaluate() { this.outputs[0].value = (this.inputs[0].value !== this.inputs[1].value) ? 1 : 0; }
+            }
+
+            // --- Canvas & Logic ---
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.6;
+                canvas.width = width;
+                canvas.height = height;
+            }
+
+            function evaluateCircuit() {
+                // Reset all non-input values
+                components.forEach(c => {
+                    if (c.type !== 'INPUT') {
+                        c.inputs.forEach(i => i.value = 0);
+                    }
+                });
+
+                // Propagate values
+                connections.forEach(conn => {
+                    conn.to.value = conn.from.value;
+                });
+                
+                // Evaluate gates multiple times for propagation
+                for(let i=0; i<5; i++) {
+                    components.forEach(c => {
+                        if (c.evaluate) c.evaluate();
+                    });
+                    connections.forEach(conn => {
+                        conn.to.value = conn.from.value;
+                    });
+                }
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+
+                // Draw connections
+                connections.forEach(conn => {
+                    ctx.beginPath();
+                    ctx.moveTo(conn.from.x, conn.from.y);
+                    ctx.lineTo(conn.to.x, conn.to.y);
+                    ctx.strokeStyle = conn.from.value ? '#facc15' : '#4b5563';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                });
+                ctx.lineWidth = 1;
+
+                // Draw wiring line
+                if (wiring.active) {
+                    ctx.beginPath();
+                    ctx.moveTo(wiring.fromNode.x, wiring.fromNode.y);
+                    ctx.lineTo(mousePos.x, mousePos.y);
+                    ctx.strokeStyle = '#a3e635';
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                }
+                
+                // Draw components
+                components.forEach(c => c.draw(ctx));
+            }
+
+            function gameLoop() {
+                evaluateCircuit();
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+
+            // --- Event Listeners ---
+            function getMousePos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: evt.clientX - rect.left,
+                    y: evt.clientY - rect.top
+                };
+            }
+
+            paletteItems.forEach(item => {
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    const type = item.dataset.type;
+                    const tempComponent = createComponent(type, 10, 10);
+                    draggingComponent = { component: tempComponent, isNew: true };
+                });
+            });
+            
+            function createComponent(type, x, y) {
+                 switch (type) {
+                    case 'INPUT': return new InputSwitch(x, y);
+                    case 'OUTPUT': return new OutputLight(x, y);
+                    case 'AND': return new AndGate(x, y);
+                    case 'OR': return new OrGate(x, y);
+                    case 'NOT': return new NotGate(x, y);
+                    case 'XOR': return new XorGate(x, y);
+                }
+            }
+
+            canvas.addEventListener('mousedown', (e) => {
+                const pos = getMousePos(e);
+                
+                // Handle wiring or component interaction
+                for (let i = components.length - 1; i >= 0; i--) {
+                    const comp = components[i];
+                    const node = comp.getNodeAt(pos.x, pos.y);
+                    if (node) {
+                        if (wiring.active) { // Complete a wire
+                            const fromNode = wiring.fromNode;
+                            const toNode = node;
+                            // Prevent connecting output to output or input to input, and connecting to self
+                            if (fromNode.isOutput !== toNode.isOutput && fromNode.component.id !== toNode.component.id) {
+                                // Ensure an input node isn't already connected
+                                const existingConnection = connections.find(c => c.to === toNode);
+                                if (!existingConnection) {
+                                    connections.push({ from: fromNode.isOutput ? fromNode : toNode, to: fromNode.isOutput ? toNode : fromNode });
+                                }
+                            }
+                            wiring.active = false;
+                        } else { // Start a wire
+                            wiring = { active: true, fromNode: node };
+                        }
+                        return; // Stop after handling a node click
+                    }
+                    
+                    if (comp.isMouseOver(pos.x, pos.y)) {
+                        if (comp.type === 'INPUT') { // Toggle switch
+                            comp.toggle();
+                        } else { // Start dragging existing component
+                            draggingComponent = { component: comp, isNew: false };
+                            dragOffsetX = pos.x - comp.x;
+                            dragOffsetY = pos.y - comp.y;
+                        }
+                        return; // Stop after finding the top-most component
+                    }
+                }
+                 // If clicking on empty space, cancel wiring
+                 if (wiring.active) wiring.active = false;
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                mousePos = getMousePos(e);
+                if (draggingComponent) {
+                    draggingComponent.component.x = mousePos.x - (draggingComponent.isNew ? draggingComponent.component.width/2 : dragOffsetX);
+                    draggingComponent.component.y = mousePos.y - (draggingComponent.isNew ? draggingComponent.component.height/2 : dragOffsetY);
+                }
+            });
+
+            canvas.addEventListener('mouseup', (e) => {
+                if (draggingComponent) {
+                    if (draggingComponent.isNew) {
+                        components.push(draggingComponent.component);
+                    }
+                    draggingComponent = null;
+                }
+            });
+            
+            clearBtn.addEventListener('click', () => {
+                components = [];
+                connections = [];
+                wiring.active = false;
+                draggingComponent = null;
+            });
+
+            // --- Init ---
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informática | Simulador de Redes de Paquetes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        .btn-action { transition: background-color 0.2s, transform 0.1s; }
+        .btn-action:active { transform: scale(0.95); }
+        .btn-action:disabled { background-color: #4b5563; cursor: not-allowed; }
+        select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3e635' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5em 1.5em;
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="informatica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Informática</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Redes y Enrutamiento de Paquetes</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-4">
+                <canvas id="networkCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Crear Paquete</h3>
+                
+                <div class="mb-4">
+                    <label for="source-ip" class="block mb-2">IP Origen:</label>
+                    <select id="source-ip" class="w-full bg-gray-700 text-white p-2 rounded-lg border border-gray-600"></select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="dest-ip" class="block mb-2">IP Destino:</label>
+                    <select id="dest-ip" class="w-full bg-gray-700 text-white p-2 rounded-lg border border-gray-600"></select>
+                </div>
+                
+                <button id="send-btn" class="btn-action w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Enviar Paquete</button>
+                
+                <div class="border-t border-gray-700 mt-6 pt-4">
+                    <h4 class="font-bold text-lg text-lime-300 mb-2">Registro de Eventos</h4>
+                    <div id="log-panel" class="font-fira text-sm bg-gray-900 p-2 rounded-lg h-48 overflow-y-auto">
+                        <p class="text-gray-500">Esperando envío...</p>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-700 mt-4 pt-4">
+                     <button id="reset-btn" class="btn-action w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Simulación</button>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Cómo viajan los datos en una red?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Cuando envías datos por internet, no viajan como un flujo continuo, sino que se dividen en pequeños trozos llamados **paquetes**. Cada paquete contiene la dirección IP de origen, la de destino y una parte de los datos.
+                <br><br>
+                Los **routers** son los carteros de internet. Cada uno tiene una "tabla de enrutamiento" que le dice cuál es el siguiente "salto" más cercano para que el paquete llegue a su destino. En esta simulación, puedes ver cómo un paquete viaja de router en router, siguiendo las reglas de sus tablas, hasta que finalmente alcanza el ordenador de destino.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('networkCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const controls = {
+                sourceSelect: document.getElementById('source-ip'),
+                destSelect: document.getElementById('dest-ip'),
+                sendBtn: document.getElementById('send-btn'),
+                resetBtn: document.getElementById('reset-btn'),
+            };
+            const logPanel = document.getElementById('log-panel');
+
+            let width, height;
+            let nodes = {};
+            let packets = [];
+            let animationFrameId;
+
+            const networkLayout = {
+                'PC-A': { x: 0.1, y: 0.2, type: 'pc', ip: '192.168.1.10' },
+                'PC-B': { x: 0.1, y: 0.8, type: 'pc', ip: '192.168.1.20' },
+                'Router-1': { x: 0.3, y: 0.5, type: 'router', ip: '192.168.1.1' },
+                'Router-2': { x: 0.7, y: 0.3, type: 'router', ip: '10.0.0.1' },
+                'Router-3': { x: 0.7, y: 0.7, type: 'router', ip: '10.0.0.2' },
+                'PC-C': { x: 0.9, y: 0.5, type: 'pc', ip: '172.16.0.15' },
+            };
+            
+            const connections = [
+                ['PC-A', 'Router-1'], ['PC-B', 'Router-1'],
+                ['Router-1', 'Router-2'], ['Router-1', 'Router-3'],
+                ['Router-2', 'Router-3'], ['Router-2', 'PC-C'], ['Router-3', 'PC-C']
+            ];
+
+            // Simplified routing tables: { destination_network: next_hop_ip }
+            const routingTables = {
+                'Router-1': { '10.0.0.0/24': 'Router-2', '172.16.0.0/16': 'Router-3' },
+                'Router-2': { '192.168.1.0/24': 'Router-1', '172.16.0.0/16': 'PC-C' },
+                'Router-3': { '192.168.1.0/24': 'Router-1', '172.16.0.0/16': 'PC-C' }
+            };
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = 500;
+                canvas.width = width;
+                canvas.height = height;
+
+                Object.entries(networkLayout).forEach(([id, data]) => {
+                    nodes[id] = { ...data, x: data.x * width, y: data.y * height, id };
+                });
+            }
+
+            function setupControls() {
+                const pcIPs = Object.values(nodes).filter(n => n.type === 'pc').map(n => n.ip);
+                controls.sourceSelect.innerHTML = '';
+                controls.destSelect.innerHTML = '';
+                pcIPs.forEach(ip => {
+                    controls.sourceSelect.innerHTML += `<option value="${ip}">${ip}</option>`;
+                    controls.destSelect.innerHTML += `<option value="${ip}">${ip}</option>`;
+                });
+                controls.destSelect.selectedIndex = 1;
+            }
+
+            function addLog(message, color = 'text-gray-300') {
+                const p = document.createElement('p');
+                p.className = `font-fira ${color}`;
+                p.textContent = `> ${message}`;
+                logPanel.appendChild(p);
+                logPanel.scrollTop = logPanel.scrollHeight;
+            }
+
+            function drawNode(node) {
+                const size = node.type === 'pc' ? 20 : 25;
+                ctx.fillStyle = node.type === 'pc' ? '#3b82f6' : '#22c55e';
+                ctx.beginPath();
+                if(node.type === 'pc'){
+                    ctx.rect(node.x - size/2, node.y - size/2, size, size);
+                } else {
+                    ctx.arc(node.x, node.y, size/2, 0, 2 * Math.PI);
+                }
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.font = '12px Inter';
+                ctx.fillText(node.id, node.x, node.y + size);
+                ctx.fillText(node.ip, node.x, node.y + size + 15);
+            }
+
+            function drawConnections() {
+                ctx.strokeStyle = '#4b5563';
+                ctx.lineWidth = 2;
+                connections.forEach(([from, to]) => {
+                    const nodeFrom = Object.values(nodes).find(n => n.id === from);
+                    const nodeTo = Object.values(nodes).find(n => n.id === to);
+                    ctx.beginPath();
+                    ctx.moveTo(nodeFrom.x, nodeFrom.y);
+                    ctx.lineTo(nodeTo.x, nodeTo.y);
+                    ctx.stroke();
+                });
+            }
+            
+            function drawPacket(packet){
+                ctx.fillStyle = '#f97316';
+                ctx.beginPath();
+                ctx.arc(packet.x, packet.y, 8, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+                drawConnections();
+                Object.values(nodes).forEach(drawNode);
+                packets.forEach(drawPacket);
+            }
+
+            function findNodeByIp(ip) {
+                return Object.values(nodes).find(n => n.ip === ip);
+            }
+            
+            function findNodeById(id) {
+                return Object.values(nodes).find(n => n.id === id);
+            }
+
+            function getNextHop(currentNode, destIp) {
+                if (currentNode.type !== 'router') return findNodeByIp(destIp);
+                const table = routingTables[currentNode.id];
+                // Extremely simplified network matching
+                let nextHopId = null;
+                if(destIp.startsWith('192.168.1.')) nextHopId = table['192.168.1.0/24'];
+                if(destIp.startsWith('10.0.0.')) nextHopId = table['10.0.0.0/24'];
+                if(destIp.startsWith('172.16.0.')) nextHopId = table['172.16.0.0/16'];
+                
+                // If destination is directly connected
+                if(currentNode.id === 'Router-2' && destIp === '172.16.0.15') return findNodeById('PC-C');
+                if(currentNode.id === 'Router-3' && destIp === '172.16.0.15') return findNodeById('PC-C');
+
+
+                return findNodeById(nextHopId);
+            }
+
+            function updatePackets() {
+                packets.forEach((p, index) => {
+                    if (p.arrived) return;
+
+                    const dx = p.target.x - p.x;
+                    const dy = p.target.y - p.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < p.speed) {
+                        p.x = p.target.x;
+                        p.y = p.target.y;
+                        p.currentNode = p.target;
+
+                        if (p.currentNode.ip === p.destIp) {
+                            p.arrived = true;
+                            addLog(`Paquete llegó a ${p.destIp}!`, 'text-lime-400');
+                            return;
+                        }
+
+                        if (p.currentNode.type === 'router') {
+                            addLog(`Paquete en ${p.currentNode.id}. Reenviando...`);
+                            p.target = getNextHop(p.currentNode, p.destIp);
+                             if (!p.target) {
+                                p.arrived = true; // Dropped
+                                addLog(`Paquete descartado en ${p.currentNode.id}: No hay ruta.`, 'text-red-500');
+                             }
+                        } else {
+                            // Should not happen unless it's the destination
+                            p.arrived = true;
+                        }
+
+                    } else {
+                        p.x += (dx / dist) * p.speed;
+                        p.y += (dy / dist) * p.speed;
+                    }
+                });
+                packets = packets.filter(p => !p.arrived);
+            }
+
+            function gameLoop() {
+                updatePackets();
+                draw();
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+            
+            function handleSend() {
+                const sourceIp = controls.sourceSelect.value;
+                const destIp = controls.destSelect.value;
+                
+                if (sourceIp === destIp) {
+                    addLog('Error: Origen y destino no pueden ser iguales.', 'text-yellow-400');
+                    return;
+                }
+
+                logPanel.innerHTML = '';
+                addLog(`Creando paquete de ${sourceIp} a ${destIp}`);
+
+                const startNode = findNodeByIp(sourceIp);
+                
+                const newPacket = {
+                    x: startNode.x, y: startNode.y,
+                    sourceIp, destIp,
+                    currentNode: startNode,
+                    target: findNodeById('Router-1'), // First hop for PCs
+                    speed: 2,
+                    arrived: false
+                };
+                packets.push(newPacket);
+            }
+            
+            function handleReset(){
+                packets = [];
+                logPanel.innerHTML = '<p class="text-gray-500">Esperando envío...</p>';
+            }
+
+            // --- Init ---
+            setupCanvas();
+            setupControls();
+            
+            controls.sendBtn.addEventListener('click', handleSend);
+            controls.resetBtn.addEventListener('click', handleReset);
+            window.addEventListener('resize', () => {
+                cancelAnimationFrame(animationFrameId);
+                setupCanvas();
+                gameLoop();
+            });
+
+            gameLoop();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡El Asombroso Círculo Unitario!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fef3c7; /* amber-100 for old paper feel */
+            /* Ben-Day dots effect */
+            background-image: radial-gradient(#fde68a 1px, transparent 1px);
+            background-size: 10px 10px;
+        }
+        .font-bangers {
+            font-family: 'Bangers', cursive;
+            letter-spacing: 1px;
+        }
+        .comic-panel {
+            background-color: white;
+            border: 4px solid black;
+            box-shadow: 8px 8px 0px black;
+        }
+        .caption-box {
+            background-color: #fef08a; /* yellow-200 */
+            border: 3px solid black;
+            padding: 1rem;
+        }
+        .title-splash {
+            background-color: #f59e0b; /* amber-500 */
+            color: white;
+            padding: 1rem 2rem;
+            border: 4px solid black;
+            clip-path: polygon(0% 15%, 100% 0%, 95% 100%, 5% 90%);
+            text-shadow: 3px 3px 0px black;
+        }
+        canvas {
+            background-color: #f0f9ff; /* sky-50 */
+            border: 3px solid black;
+        }
+    </style>
+</head>
+<body class="text-black p-4 md:p-8">
+
+    <div class="container mx-auto max-w-7xl">
+        <header class="text-center mb-12">
+            <div class="inline-block">
+                <div class="title-splash">
+                    <h1 class="text-5xl md:text-6xl font-bangers">¡¡EL CÍRCULO UNITARIO ATÓMICO!!</h1>
+                </div>
+            </div>
+        </header>
+
+        <a href="matematicas.html" class="block font-bold text-lg mb-8 hover:underline">&larr; ¡Regresar a las Misiones Matemáticas!</a>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Main Simulation Panel -->
+            <div class="lg:col-span-2 comic-panel p-4 bg-sky-200">
+                <h2 class="font-bangers text-3xl text-center mb-2">¡MUEVE EL PUNTO DE PODER!</h2>
+                <canvas id="unitCircleCanvas"></canvas>
+            </div>
+            
+            <!-- Data Panel -->
+            <div class="space-y-8">
+                <div class="comic-panel p-4 bg-red-200" style="transform: rotate(2deg);">
+                    <h3 class="font-bangers text-2xl mb-2">¡LECTURAS DEL SUPER-COMPUTADOR!</h3>
+                    <div class="font-bold space-y-2">
+                        <p>Ángulo (Grados): <span id="angle-deg" class="text-red-700">0.0°</span></p>
+                        <p>Ángulo (Radianes): <span id="angle-rad" class="text-red-700">0.00</span></p>
+                        <p>Coordenadas (x, y): (<span id="coord-x" class="text-blue-700">1.00</span>, <span id="coord-y" class="text-green-700">0.00</span>)</p>
+                        <hr class="border-black my-2">
+                        <p>cos(θ) = <span id="cos-val" class="text-blue-700">1.00</span></p>
+                        <p>sin(θ) = <span id="sin-val" class="text-green-700">0.00</span></p>
+                        <p>tan(θ) = <span id="tan-val" class="text-orange-700">0.00</span></p>
+                    </div>
+                </div>
+                <div class="comic-panel p-4 bg-green-200" style="transform: rotate(-1deg);">
+                     <h3 class="font-bangers text-2xl mb-2">¡ONDA SENOIDAL!</h3>
+                     <canvas id="sinCanvas" height="100"></canvas>
+                </div>
+                 <div class="comic-panel p-4 bg-blue-200" style="transform: rotate(1.5deg);">
+                     <h3 class="font-bangers text-2xl mb-2">¡ONDA COSENOIDAL!</h3>
+                     <canvas id="cosCanvas" height="100"></canvas>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="mt-12 caption-box">
+             <h3 class="font-bangers text-3xl mb-2">¡INSTRUCCIONES SECRETAS!</h3>
+             <p class="font-bold">¡Arrastra el punto azul alrededor del círculo, joven científico! ¡Observa cómo los valores y las ondas cambian ante tus propios ojos! ¡El coseno es la distancia horizontal y el seno la vertical! ¡Fascinante!</p>
+        </footer>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const circleCanvas = document.getElementById('unitCircleCanvas');
+        const circleCtx = circleCanvas.getContext('2d');
+        const sinCanvas = document.getElementById('sinCanvas');
+        const sinCtx = sinCanvas.getContext('2d');
+        const cosCanvas = document.getElementById('cosCanvas');
+        const cosCtx = cosCanvas.getContext('2d');
+
+        const angleDegEl = document.getElementById('angle-deg');
+        const angleRadEl = document.getElementById('angle-rad');
+        const coordXEl = document.getElementById('coord-x');
+        const coordYEl = document.getElementById('coord-y');
+        const cosValEl = document.getElementById('cos-val');
+        const sinValEl = document.getElementById('sin-val');
+        const tanValEl = document.getElementById('tan-val');
+
+        let radius, centerX, centerY;
+        let angle = 0;
+        let isDragging = false;
+
+        function resizeCanvas() {
+            const container = circleCanvas.parentElement;
+            // Ensure the calculated size is never negative by clamping it with Math.max
+            const size = Math.max(100, Math.min(container.clientWidth - 30, 500));
+            circleCanvas.width = size;
+            circleCanvas.height = size;
+            radius = size * 0.4;
+            centerX = size / 2;
+            centerY = size / 2;
+
+            sinCanvas.width = Math.max(50, sinCanvas.parentElement.clientWidth - 30);
+            cosCanvas.width = Math.max(50, cosCanvas.parentElement.clientWidth - 30);
+
+            drawAll();
+        }
+
+        function drawAll() {
+            drawCircle();
+            drawGraphs();
+            updateInfo();
+        }
+        
+        function drawCircle() {
+            circleCtx.clearRect(0, 0, circleCanvas.width, circleCanvas.height);
+            
+            // Axes
+            circleCtx.strokeStyle = '#9ca3af';
+            circleCtx.lineWidth = 2;
+            circleCtx.beginPath();
+            circleCtx.moveTo(0, centerY);
+            circleCtx.lineTo(circleCanvas.width, centerY);
+            circleCtx.moveTo(centerX, 0);
+            circleCtx.lineTo(centerX, circleCanvas.height);
+            circleCtx.stroke();
+            
+            // Circle
+            circleCtx.strokeStyle = 'black';
+            circleCtx.lineWidth = 4;
+            circleCtx.beginPath();
+            circleCtx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            circleCtx.stroke();
+
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY - radius * Math.sin(angle);
+            
+            // Cosine line (green in original, now blue)
+            circleCtx.strokeStyle = '#1d4ed8'; // blue-800
+            circleCtx.lineWidth = 3;
+            circleCtx.beginPath();
+            circleCtx.moveTo(centerX, centerY);
+            circleCtx.lineTo(x, centerY);
+            circleCtx.stroke();
+
+            // Sine line (red in original, now green)
+            circleCtx.strokeStyle = '#15803d'; // green-700
+            circleCtx.lineWidth = 3;
+            circleCtx.beginPath();
+            circleCtx.moveTo(x, centerY);
+            circleCtx.lineTo(x, y);
+            circleCtx.stroke();
+
+            // Radius line
+            circleCtx.strokeStyle = 'black';
+            circleCtx.lineWidth = 2;
+            circleCtx.beginPath();
+            circleCtx.moveTo(centerX, centerY);
+            circleCtx.lineTo(x, y);
+            circleCtx.stroke();
+            
+            // Draggable point
+            circleCtx.fillStyle = '#2563eb'; // blue-600
+            circleCtx.beginPath();
+            circleCtx.arc(x, y, 10, 0, 2 * Math.PI);
+            circleCtx.fill();
+        }
+
+        function drawGraph(ctx, func, color) {
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, height / 2);
+            ctx.lineTo(width, height / 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            for (let i = 0; i < width; i++) {
+                const graphAngle = (i / width) * 2 * Math.PI;
+                const y = height / 2 - func(graphAngle) * (height * 0.4);
+                if (i === 0) {
+                    ctx.moveTo(i, y);
+                } else {
+                    ctx.lineTo(i, y);
+                }
+            }
+            ctx.stroke();
+
+            // Current angle indicator
+            const currentX = (angle / (2 * Math.PI)) * width;
+            const currentY = height / 2 - func(angle) * (height * 0.4);
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+        
+        function drawGraphs() {
+            drawGraph(sinCtx, Math.sin, '#15803d');
+            drawGraph(cosCtx, Math.cos, '#1d4ed8');
+        }
+
+        function updateInfo() {
+            let angleDeg = angle * 180 / Math.PI;
+            if (angleDeg < 0) angleDeg += 360;
+
+            const cosVal = Math.cos(angle);
+            const sinVal = Math.sin(angle);
+            const tanVal = sinVal / cosVal;
+            
+            angleDegEl.textContent = `${angleDeg.toFixed(1)}°`;
+            angleRadEl.textContent = `${angle.toFixed(2)}`;
+            coordXEl.textContent = `${cosVal.toFixed(2)}`;
+            coordYEl.textContent = `${sinVal.toFixed(2)}`;
+            cosValEl.textContent = `${cosVal.toFixed(2)}`;
+            sinValEl.textContent = `${sinVal.toFixed(2)}`;
+            tanValEl.textContent = (Math.abs(tanVal) > 10000) ? '∞' : `${tanVal.toFixed(2)}`;
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging) return;
+            const rect = circleCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            angle = Math.atan2(centerY - mouseY, mouseX - centerX);
+            drawAll();
+        }
+        
+        circleCanvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            handleMouseMove(e);
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('resize', resizeCanvas);
+
+        resizeCanvas();
+    });
+    </script>
+</body>
+</html>
+

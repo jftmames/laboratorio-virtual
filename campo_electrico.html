@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Laboratorio de Campo Eléctrico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        canvas { background-color: #111827; } /* bg-gray-900 */
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Laboratorio de Campo Eléctrico</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-0 overflow-hidden">
+                <canvas id="fieldCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <div class="mb-4">
+                    <p class="mb-2 font-medium">Tipo de Carga a Añadir:</p>
+                    <div class="flex items-center space-x-4">
+                        <label class="flex items-center">
+                            <input type="radio" name="chargeType" value="1" class="form-radio text-red-500 bg-gray-700" checked>
+                            <span class="ml-2 text-red-400">Positiva (+)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="chargeType" value="-1" class="form-radio text-blue-500 bg-gray-700">
+                            <span class="ml-2 text-blue-400">Negativa (-)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-6 border-t border-gray-700 pt-4">
+                    <p class="mb-2 font-medium">Visualización:</p>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show-vectors" class="form-checkbox text-lime-500 bg-gray-700" checked>
+                            <span class="ml-2">Vectores de Campo</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show-potential" class="form-checkbox text-lime-500 bg-gray-700">
+                            <span class="ml-2">Mapa de Potencial</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button id="clear-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Limpiar Todo</button>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué es el Campo Eléctrico?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                El campo eléctrico es una región del espacio alrededor de una carga eléctrica donde otra carga experimentaría una fuerza. Las cargas positivas crean campos que apuntan hacia afuera, mientras que las cargas negativas crean campos que apuntan hacia adentro. Los **vectores** que ves muestran la dirección y la fuerza del campo en cada punto. El **mapa de potencial** (o voltaje) muestra la energía potencial por unidad de carga; es alto (rojo) cerca de las cargas positivas y bajo (azul) cerca de las negativas. ¡Experimenta colocando cargas y observa cómo interactúan sus campos!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('fieldCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                chargeType: () => document.querySelector('input[name="chargeType"]:checked').value,
+                showVectors: document.getElementById('show-vectors'),
+                showPotential: document.getElementById('show-potential'),
+                clearBtn: document.getElementById('clear-btn')
+            };
+
+            let width, height;
+            let charges = [];
+            const k = 9e9; // Constante de Coulomb (simplificada para visualización)
+            const vectorGridSize = 30;
+            const potentialGridSize = 10;
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.75; // Aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                draw();
+            }
+
+            function getFieldAt(x, y) {
+                let Ex = 0, Ey = 0;
+                for (const charge of charges) {
+                    const dx = x - charge.x;
+                    const dy = y - charge.y;
+                    const r2 = dx * dx + dy * dy;
+                    if (r2 < 100) continue; // Avoid singularity
+                    const r = Math.sqrt(r2);
+                    const E = (k * charge.q) / r2;
+                    Ex += E * (dx / r);
+                    Ey += E * (dy / r);
+                }
+                return { Ex, Ey };
+            }
+
+            function getPotentialAt(x, y) {
+                let V = 0;
+                for (const charge of charges) {
+                    const dx = x - charge.x;
+                    const dy = y - charge.y;
+                    const r = Math.sqrt(dx * dx + dy * dy);
+                    if (r < 1) continue;
+                    V += (k * charge.q) / r;
+                }
+                return V;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+
+                if (controls.showPotential.checked) {
+                    drawPotentialMap();
+                }
+
+                if (controls.showVectors.checked) {
+                    drawVectorField();
+                }
+
+                drawCharges();
+            }
+            
+            function drawPotentialMap() {
+                 const potentialData = [];
+                 let minV = Infinity, maxV = -Infinity;
+
+                for (let x = 0; x < width; x += potentialGridSize) {
+                    for (let y = 0; y < height; y += potentialGridSize) {
+                       const V = getPotentialAt(x, y);
+                       potentialData.push({x, y, V});
+                       if (V < minV) minV = V;
+                       if (V > maxV) maxV = V;
+                    }
+                }
+                
+                // Avoid division by zero if field is uniform
+                if (minV === maxV) {
+                    minV -= 1;
+                    maxV += 1;
+                }
+
+                potentialData.forEach(p => {
+                    let normalizedV = (p.V - minV) / (maxV - minV);
+                    
+                    let r, g, b;
+                    // Blue (negative) -> Black (zero) -> Red (positive)
+                    if (normalizedV < 0.5) { // Blue to Black
+                        r = 0;
+                        g = 0;
+                        b = 255 * (1 - normalizedV * 2);
+                    } else { // Black to Red
+                        r = 255 * ((normalizedV - 0.5) * 2);
+                        g = 0;
+                        b = 0;
+                    }
+                    
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+                    ctx.fillRect(p.x, p.y, potentialGridSize, potentialGridSize);
+                });
+            }
+
+            function drawVectorField() {
+                ctx.strokeStyle = '#a0aec0'; // gray-400
+                ctx.lineWidth = 1;
+                for (let x = 0; x < width; x += vectorGridSize) {
+                    for (let y = 0; y < height; y += vectorGridSize) {
+                        const { Ex, Ey } = getFieldAt(x, y);
+                        const E_mag = Math.sqrt(Ex * Ex + Ey * Ey);
+                        if (E_mag === 0) continue;
+
+                        const angle = Math.atan2(Ey, Ex);
+                        const len = Math.log(E_mag) * 2; // Log scale for better visualization
+
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + len * Math.cos(angle), y + len * Math.sin(angle));
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            function drawCharges() {
+                for (const charge of charges) {
+                    ctx.beginPath();
+                    ctx.arc(charge.x, charge.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = charge.q > 0 ? '#f87171' : '#60a5fa'; // red-400 : blue-400
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+            
+            // --- Event Listeners ---
+            canvas.addEventListener('click', e => {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                charges.push({ x, y, q: parseFloat(controls.chargeType()) * 1e-9 });
+                draw();
+            });
+
+            controls.clearBtn.addEventListener('click', () => {
+                charges = [];
+                draw();
+            });
+            
+            controls.showVectors.addEventListener('change', draw);
+            controls.showPotential.addEventListener('change', draw);
+            window.addEventListener('resize', setupCanvas);
+
+            setupCanvas();
+        });
+    </script>
+</body>
+</html>

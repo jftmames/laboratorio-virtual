@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informática | Máquina de Turing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        .tape-cell {
+            min-width: 50px;
+            height: 50px;
+            border: 2px solid #4a5568; /* gray-600 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            background-color: #1f2937; /* gray-800 */
+            transition: all 0.2s;
+        }
+        .tape-head {
+            border-bottom: 4px solid #a3e635; /* lime-400 */
+            transform: scale(1.1);
+            background-color: #374151; /* gray-700 */
+        }
+        .rule-highlight {
+            background-color: #4d7c0f; /* lime-800 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <a href="informatica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Informática</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Máquina de Turing Simplificada</h1>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Simulation View -->
+            <div class="md:col-span-2 bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <h3 class="text-xl font-bold text-lime-300 mb-4 text-center">Cinta de la Máquina</h3>
+                <div class="bg-black rounded-lg p-4 overflow-x-auto">
+                    <div id="tape-container" class="flex items-center justify-center transition-transform duration-300 ease-in-out">
+                        <!-- Tape cells will be generated here -->
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="mt-6 flex flex-wrap justify-center items-center gap-4">
+                    <button id="run-btn" class="bg-lime-600 hover:bg-lime-500 text-white font-bold py-2 px-5 rounded-lg">▶ Ejecutar</button>
+                    <button id="pause-btn" class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-5 rounded-lg">❚❚ Pausar</button>
+                    <button id="step-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-lg">Paso &rarr;</button>
+                    <button id="reset-btn" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-5 rounded-lg">Reiniciar</button>
+                </div>
+                 <div class="mt-4 flex items-center justify-center gap-4">
+                    <label for="speed-slider" class="text-sm">Velocidad:</label>
+                    <input type="range" id="speed-slider" min="50" max="1000" value="500" class="w-48">
+                </div>
+            </div>
+
+            <!-- State and Rules -->
+            <aside class="md:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700">
+                 <h3 class="text-xl font-bold text-lime-300 mb-2">Estado y Reglas</h3>
+                 <p class="text-sm text-gray-400 mb-4">Programa: Invertir bits (0 &rarr; 1, 1 &rarr; 0)</p>
+                 <div class="mb-4">
+                    <strong>Estado Actual:</strong> <span id="current-state" class="font-fira bg-lime-900 text-lime-300 px-2 py-1 rounded">q0</span>
+                 </div>
+                 <div id="rules-container" class="space-y-1 text-sm font-fira">
+                    <!-- Rules will be generated here -->
+                 </div>
+                 <div class="mt-4 pt-4 border-t border-gray-700">
+                     <h4 class="font-bold text-lime-300 mb-2">Entrada Inicial</h4>
+                     <input type="text" id="tape-input" value="11010" class="w-full bg-gray-900 text-white p-2 rounded-lg border border-gray-600 font-fira focus:outline-none focus:ring-2 focus:ring-lime-500">
+                 </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué es una Máquina de Turing?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Una Máquina de Turing es un modelo matemático de computación que define una máquina abstracta que manipula símbolos en una cinta de acuerdo a una tabla de reglas. A pesar de su simplicidad, puede ser adaptada para simular la lógica de cualquier algoritmo de computadora. Es el concepto fundamental que define qué significa que un problema sea "computable". La máquina consiste en una **cinta** (memoria), un **cabezal** (que lee y escribe) y un conjunto de **reglas** que dictan la acción a tomar basado en el símbolo actual y el **estado** interno de la máquina.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tapeContainer = document.getElementById('tape-container');
+            const tapeInput = document.getElementById('tape-input');
+            const rulesContainer = document.getElementById('rules-container');
+            const currentStateSpan = document.getElementById('current-state');
+            const runBtn = document.getElementById('run-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const stepBtn = document.getElementById('step-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const speedSlider = document.getElementById('speed-slider');
+
+            const BLANK = ' ';
+            let tape = {};
+            let head = 0;
+            let state = 'q0';
+            let intervalId = null;
+
+            // δ(estado_actual, símbolo_leído) -> [estado_nuevo, símbolo_a_escribir, movimiento]
+            const rules = {
+                'q0': {
+                    '0': ['q0', '1', 'R'],
+                    '1': ['q0', '0', 'R'],
+                    [BLANK]: ['HALT', BLANK, 'N']
+                }
+            };
+            
+            function renderRules() {
+                rulesContainer.innerHTML = '';
+                for (const s in rules) {
+                    for (const symbol in rules[s]) {
+                        const [newState, newSymbol, move] = rules[s][symbol];
+                        const ruleEl = document.createElement('div');
+                        ruleEl.className = 'p-1 rounded transition-colors duration-200';
+                        ruleEl.id = `rule-${s}-${symbol}`;
+                        ruleEl.textContent = `δ(${s}, ${symbol === BLANK ? '□' : symbol}) → (${newState}, ${newSymbol === BLANK ? '□' : newSymbol}, ${move})`;
+                        rulesContainer.appendChild(ruleEl);
+                    }
+                }
+            }
+
+            function initializeTape() {
+                tape = {};
+                head = 0;
+                state = 'q0';
+                const input = tapeInput.value || '';
+                for (let i = 0; i < input.length; i++) {
+                    tape[i] = input[i];
+                }
+                render();
+            }
+
+            function render() {
+                tapeContainer.innerHTML = '';
+                const min = Math.min(head, ...Object.keys(tape).map(Number), -5);
+                const max = Math.max(head, ...Object.keys(tape).map(Number), 5);
+
+                for (let i = min; i <= max; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'tape-cell font-fira';
+                    cell.textContent = tape[i] || BLANK;
+                    if (i === head) {
+                        cell.classList.add('tape-head');
+                    }
+                    tapeContainer.appendChild(cell);
+                }
+                
+                currentStateSpan.textContent = state;
+                updateRuleHighlight();
+            }
+
+            function updateRuleHighlight() {
+                document.querySelectorAll('[id^="rule-"]').forEach(el => el.classList.remove('rule-highlight'));
+                if (state !== 'HALT') {
+                    const currentSymbol = tape[head] || BLANK;
+                    const ruleId = `rule-${state}-${currentSymbol}`;
+                    const ruleEl = document.getElementById(ruleId);
+                    if (ruleEl) {
+                        ruleEl.classList.add('rule-highlight');
+                    }
+                }
+            }
+
+            function step() {
+                if (state === 'HALT') {
+                    pause();
+                    return;
+                }
+                
+                const currentSymbol = tape[head] || BLANK;
+                const rule = rules[state] ? rules[state][currentSymbol] : undefined;
+
+                if (!rule) {
+                    state = 'HALT'; // No rule found, halt.
+                    render();
+                    pause();
+                    return;
+                }
+
+                const [newState, newSymbol, move] = rule;
+                tape[head] = newSymbol;
+                state = newState;
+
+                if (move === 'R') head++;
+                if (move === 'L') head--;
+                
+                render();
+            }
+            
+            function run() {
+                if (intervalId) return; // Already running
+                if(state === 'HALT') return;
+                const delay = 1050 - speedSlider.value;
+                intervalId = setInterval(step, delay);
+                runBtn.disabled = true;
+                pauseBtn.disabled = false;
+            }
+
+            function pause() {
+                clearInterval(intervalId);
+                intervalId = null;
+                runBtn.disabled = false;
+                pauseBtn.disabled = true;
+            }
+
+            runBtn.addEventListener('click', run);
+            pauseBtn.addEventListener('click', pause);
+            stepBtn.addEventListener('click', () => {
+                pause();
+                step();
+            });
+            resetBtn.addEventListener('click', () => {
+                pause();
+                initializeTape();
+            });
+            tapeInput.addEventListener('change', () => {
+                pause();
+                initializeTape();
+            });
+             speedSlider.addEventListener('input', () => {
+                if(intervalId){
+                    pause();
+                    run();
+                }
+            });
+
+            // Initial Setup
+            renderRules();
+            initializeTape();
+            pauseBtn.disabled = true;
+        });
+    </script>
+</body>
+</html>

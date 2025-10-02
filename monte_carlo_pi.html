@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas | Aproximación de Pi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .pi-display {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Header -->
+        <header class="mb-6">
+            <a href="matematicas.html" class="text-teal-400 hover:text-teal-300 transition duration-300">&larr; Volver a Matemáticas</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Aproximación de Pi con Monte Carlo</h1>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Simulation Canvas -->
+            <div class="lg:col-span-2 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-2xl flex items-center justify-center">
+                <canvas id="monteCarloCanvas"></canvas>
+            </div>
+
+            <!-- Controls and Data Panel -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl flex flex-col space-y-6">
+                <!-- Pi Display -->
+                <div>
+                    <h3 class="text-xl font-bold text-teal-300 mb-2">Valor Aproximado de π</h3>
+                    <p id="pi-value" class="pi-display text-6xl font-black text-center py-4 bg-gray-900 rounded-lg text-teal-400">0.00000</p>
+                    <p class="text-center text-gray-400 mt-2">Valor real: 3.14159...</p>
+                </div>
+                
+                <!-- Statistics -->
+                <div>
+                    <h3 class="text-xl font-bold text-teal-300 mb-3">Estadísticas</h3>
+                    <div class="text-lg space-y-3 bg-gray-900 p-4 rounded-lg">
+                        <p class="flex justify-between">Puntos Dentro: <span id="inside-count" class="font-mono text-cyan-400">0</span></p>
+                        <p class="flex justify-between">Puntos Totales: <span id="total-count" class="font-mono">0</span></p>
+                        <p class="flex justify-between">Ratio: <span id="ratio" class="font-mono">0.000</span></p>
+                    </div>
+                </div>
+
+                 <!-- Controls -->
+                <div>
+                    <h3 class="text-xl font-bold text-teal-300 mb-3">Controles</h3>
+                    <div class="space-y-3">
+                         <div class="grid grid-cols-2 gap-3">
+                            <button id="add-100" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Añadir 100</button>
+                            <button id="add-1000" class="w-full bg-teal-700 hover:bg-teal-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Añadir 1,000</button>
+                         </div>
+                        <button id="animate-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Iniciar Animación</button>
+                        <button id="reset-btn" class="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Reiniciar</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Instructions Section -->
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-teal-300 mb-3">¿Cómo funciona?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Este método se basa en la probabilidad. "Lanzamos" miles de puntos aleatorios dentro de un cuadrado que contiene un cuarto de círculo.
+                <br>
+                La relación entre el área del cuarto de círculo y el área del cuadrado es <code class="bg-gray-700 p-1 rounded-md">Área Círculo / Área Cuadrado = (πr² / 4) / r² = π / 4</code>.
+                <br>
+                Por lo tanto, podemos esperar que la proporción de puntos que caen dentro del círculo sea aproximadamente igual a <code class="bg-gray-700 p-1 rounded-md">π / 4</code>. Despejando π, obtenemos la fórmula:
+                <br>
+                <code class="block text-center text-xl mt-2 font-mono text-teal-300">π ≈ 4 * (puntos dentro / puntos totales)</code>
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('monteCarloCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const piValueEl = document.getElementById('pi-value');
+            const insideCountEl = document.getElementById('inside-count');
+            const totalCountEl = document.getElementById('total-count');
+            const ratioEl = document.getElementById('ratio');
+
+            const add100Btn = document.getElementById('add-100');
+            const add1000Btn = document.getElementById('add-1000');
+            const animateBtn = document.getElementById('animate-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            let size;
+            let insideCount = 0;
+            let totalCount = 0;
+            let animationFrameId;
+            let isAnimating = false;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                size = Math.min(container.clientWidth, window.innerHeight * 0.7);
+                canvas.width = size;
+                canvas.height = size;
+                drawBackground();
+                redrawPoints(); // Redraw existing points if any
+            }
+
+            function drawBackground() {
+                // Draw square
+                ctx.fillStyle = '#1f2937'; // gray-800
+                ctx.strokeStyle = '#4b5568'; // gray-600
+                ctx.lineWidth = 2;
+                ctx.fillRect(0, 0, size, size);
+                ctx.strokeRect(0, 0, size, size);
+
+                // Draw quarter circle
+                ctx.strokeStyle = '#2dd4bf'; // teal-400
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, size, 0, Math.PI / 2);
+                ctx.stroke();
+            }
+
+            function addPoint() {
+                const x = Math.random();
+                const y = Math.random();
+                const distance = Math.sqrt(x*x + y*y);
+
+                totalCount++;
+
+                if (distance <= 1) {
+                    insideCount++;
+                    ctx.fillStyle = '#67e8f9'; // cyan-300
+                } else {
+                    ctx.fillStyle = '#f87171'; // red-400
+                }
+                
+                // Draw a small circle for the point
+                ctx.beginPath();
+                ctx.arc(x * size, y * size, 2, 0, 2 * Math.PI);
+                ctx.fill();
+
+                updateStats();
+            }
+            
+            // This is a dummy function for resize, in a real scenario you'd store points and redraw
+            function redrawPoints() {
+                // This is computationally expensive and simplified here.
+                // A full implementation would store points in an array.
+                // For this simulation, we'll just restart on resize for simplicity.
+                if (totalCount > 0) {
+                    resetSimulation();
+                }
+            }
+
+            function updateStats() {
+                const ratio = totalCount > 0 ? insideCount / totalCount : 0;
+                const piApproximation = ratio * 4;
+
+                piValueEl.textContent = piApproximation.toFixed(5);
+                insideCountEl.textContent = insideCount;
+                totalCountEl.textContent = totalCount;
+                ratioEl.textContent = ratio.toFixed(3);
+            }
+            
+            function addPointsInBatch(count) {
+                for (let i = 0; i < count; i++) {
+                    addPoint();
+                }
+            }
+
+            function animationLoop() {
+                if (!isAnimating) return;
+                addPointsInBatch(10);
+                animationFrameId = requestAnimationFrame(animationLoop);
+            }
+
+            function toggleAnimation() {
+                isAnimating = !isAnimating;
+                if (isAnimating) {
+                    animateBtn.textContent = 'Pausar Animación';
+                    animateBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                    animateBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
+                    animationLoop();
+                } else {
+                    animateBtn.textContent = 'Continuar Animación';
+                    animateBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                    animateBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                    cancelAnimationFrame(animationFrameId);
+                }
+            }
+            
+            function resetSimulation() {
+                isAnimating = false;
+                cancelAnimationFrame(animationFrameId);
+                
+                insideCount = 0;
+                totalCount = 0;
+                
+                animateBtn.textContent = 'Iniciar Animación';
+                animateBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
+                animateBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+
+                drawBackground();
+                updateStats();
+            }
+
+            add100Btn.addEventListener('click', () => addPointsInBatch(100));
+            add1000Btn.addEventListener('click', () => addPointsInBatch(1000));
+            animateBtn.addEventListener('click', toggleAnimation);
+            resetBtn.addEventListener('click', resetSimulation);
+            
+            window.addEventListener('resize', resizeCanvas);
+
+            // Initial setup
+            resizeCanvas();
+            updateStats();
+        });
+    </script>
+</body>
+</html>

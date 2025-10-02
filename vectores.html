@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas | Visualizador de Vectores 2D</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px;
+            cursor: pointer; border-radius: 50%;
+        }
+        /* FIX: Style slider thumbs directly in CSS */
+        .vector-a-slider::-webkit-slider-thumb {
+            background-color: #60a5fa; /* blue-400 */
+        }
+        .vector-b-slider::-webkit-slider-thumb {
+            background-color: #f87171; /* red-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="matematicas.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Matemáticas</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Visualizador de Vectores 2D</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg-col-span-2 bg-black rounded-xl border border-gray-700 shadow-2xl p-2">
+                <canvas id="vectorCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <!-- Vector A -->
+                <div class="mb-4">
+                    <h4 class="font-bold text-blue-400">Vector A</h4>
+                    <div class="flex items-center gap-2">
+                        <label for="ax" class="w-4">Ax:</label>
+                        <input type="range" id="ax" min="-10" max="10" value="5" class="vector-a-slider">
+                        <span id="ax-label" class="w-8 text-center font-fira">5</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <label for="ay" class="w-4">Ay:</label>
+                        <input type="range" id="ay" min="-10" max="10" value="2" class="vector-a-slider">
+                        <span id="ay-label" class="w-8 text-center font-fira">2</span>
+                    </div>
+                </div>
+
+                <!-- Vector B -->
+                <div class="mb-6">
+                    <h4 class="font-bold text-red-400">Vector B</h4>
+                    <div class="flex items-center gap-2">
+                        <label for="bx" class="w-4">Bx:</label>
+                        <input type="range" id="bx" min="-10" max="10" value="-3" class="vector-b-slider">
+                        <span id="bx-label" class="w-8 text-center font-fira">-3</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <label for="by" class="w-4">By:</label>
+                        <input type="range" id="by" min="-10" max="10" value="4" class="vector-b-slider">
+                        <span id="by-label" class="w-8 text-center font-fira">4</span>
+                    </div>
+                </div>
+                
+                <!-- Operation -->
+                <div class="mb-6">
+                     <label for="operation" class="block mb-2 text-sm font-medium">Operación</label>
+                     <select id="operation" class="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg">
+                         <option value="add">Suma (A + B)</option>
+                         <option value="subtract">Resta (A - B)</option>
+                     </select>
+                </div>
+
+                <!-- Result -->
+                <div class="border-t border-gray-700 pt-4">
+                    <h4 class="font-bold text-purple-400 text-lg">Vector Resultante (R)</h4>
+                    <p class="font-fira mt-2">R = <span id="result-vector"></span></p>
+                    <p class="font-fira mt-1">Magnitud: <span id="result-magnitude"></span></p>
+                    <p class="font-fira mt-1">Ángulo: <span id="result-angle"></span></p>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué son los Vectores?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Un vector es un objeto matemático que tiene tanto magnitud (longitud) como dirección. Se representan comúnmente como flechas. En un plano 2D, un vector se puede describir por sus componentes 'x' e 'y'. La **suma** de dos vectores (A + B) se puede visualizar colocando el inicio del vector B en el final del vector A; el vector resultante va desde el inicio de A hasta el final de B. La **resta** (A - B) es equivalente a sumar A con el opuesto de B (A + [-B]). Estas operaciones son fundamentales en física para describir fuerzas, velocidades y aceleraciones.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('vectorCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const inputs = {
+                ax: document.getElementById('ax'), ay: document.getElementById('ay'),
+                bx: document.getElementById('bx'), by: document.getElementById('by'),
+                operation: document.getElementById('operation')
+            };
+            const labels = {
+                ax: document.getElementById('ax-label'), ay: document.getElementById('ay-label'),
+                bx: document.getElementById('bx-label'), by: document.getElementById('by-label'),
+            };
+            const results = {
+                vector: document.getElementById('result-vector'),
+                magnitude: document.getElementById('result-magnitude'),
+                angle: document.getElementById('result-angle')
+            };
+
+            let width, height, originX, originY, scale;
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.75; // Aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                originX = width / 2;
+                originY = height / 2;
+                scale = Math.min(width, height) / 25;
+                
+                // FIX: Removed problematic JS styling. Moved to CSS.
+
+                draw();
+            }
+
+            function drawGrid() {
+                ctx.strokeStyle = '#2d3748'; // gray-800
+                ctx.lineWidth = 1;
+
+                // Vertical lines
+                for (let x = originX + scale; x < width; x += scale) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+                }
+                for (let x = originX - scale; x > 0; x -= scale) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+                }
+                // Horizontal lines
+                for (let y = originY + scale; y < height; y += scale) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+                }
+                for (let y = originY - scale; y > 0; y -= scale) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+                }
+
+                // Axes
+                ctx.strokeStyle = '#a0aec0'; // gray-400
+                ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0, originY); ctx.lineTo(width, originY); ctx.stroke(); // X-axis
+                ctx.beginPath(); ctx.moveTo(originX, 0); ctx.lineTo(originX, height); ctx.stroke(); // Y-axis
+            }
+
+            function drawVector(x, y, color, label) {
+                const endX = originX + x * scale;
+                const endY = originY - y * scale;
+
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 4;
+                ctx.fillStyle = color;
+
+                // Line
+                ctx.beginPath();
+                ctx.moveTo(originX, originY);
+                ctx.lineTo(endX, endY);
+                ctx.stroke();
+
+                // Arrowhead
+                const angle = Math.atan2(endY - originY, endX - originX);
+                ctx.beginPath();
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - 15 * Math.cos(angle - Math.PI / 6), endY - 15 * Math.sin(angle - Math.PI / 6));
+                ctx.lineTo(endX - 15 * Math.cos(angle + Math.PI / 6), endY - 15 * Math.sin(angle + Math.PI / 6));
+                ctx.closePath();
+                ctx.fill();
+                
+                // Label
+                ctx.font = 'bold 16px Inter';
+                ctx.fillText(label, endX + 10, endY);
+            }
+
+            function drawParallelogram(ax, ay, bx, by) {
+                const tipA_X = originX + ax * scale;
+                const tipA_Y = originY - ay * scale;
+                const tipB_X = originX + bx * scale;
+                const tipB_Y = originY - by * scale;
+                const tipR_X = originX + (ax + bx) * scale;
+                const tipR_Y = originY - (ay + by) * scale;
+                
+                ctx.strokeStyle = 'rgba(160, 174, 192, 0.4)'; // gray-500 with opacity
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+
+                // Vector from tip of A to tip of R
+                ctx.beginPath();
+                ctx.moveTo(tipA_X, tipA_Y);
+                ctx.lineTo(tipR_X, tipR_Y);
+                ctx.stroke();
+
+                // Vector from tip of B to tip of R
+                ctx.beginPath();
+                ctx.moveTo(tipB_X, tipB_Y);
+                ctx.lineTo(tipR_X, tipR_Y);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+            }
+
+            function draw() {
+                const ax = parseFloat(inputs.ax.value);
+                const ay = parseFloat(inputs.ay.value);
+                const bx = parseFloat(inputs.bx.value);
+                const by = parseFloat(inputs.by.value);
+                
+                labels.ax.textContent = ax;
+                labels.ay.textContent = ay;
+                labels.bx.textContent = bx;
+                labels.by.textContent = by;
+
+                let rx, ry;
+                if(inputs.operation.value === 'add') {
+                    rx = ax + bx;
+                    ry = ay + by;
+                } else { // subtract
+                    rx = ax - bx;
+                    ry = ay - by;
+                }
+                
+                const magnitude = Math.sqrt(rx * rx + ry * ry).toFixed(2);
+                const angle = (Math.atan2(ry, rx) * 180 / Math.PI).toFixed(1);
+
+                results.vector.textContent = `(${rx.toFixed(1)}, ${ry.toFixed(1)})`;
+                results.magnitude.textContent = magnitude;
+                results.angle.textContent = `${angle}°`;
+
+                // --- Drawing on Canvas ---
+                ctx.clearRect(0, 0, width, height);
+                drawGrid();
+                if(inputs.operation.value === 'add') {
+                    drawParallelogram(ax, ay, bx, by);
+                }
+                
+                drawVector(ax, ay, '#60a5fa', 'A'); // blue-400
+                drawVector(bx, by, '#f87171', 'B'); // red-400
+                drawVector(rx, ry, '#c084fc', 'R'); // purple-400
+            }
+            
+            Object.values(inputs).forEach(input => {
+                input.addEventListener('input', draw);
+            });
+            window.addEventListener('resize', setupCanvas);
+
+            setupCanvas();
+        });
+    </script>
+</body>
+</html>
+

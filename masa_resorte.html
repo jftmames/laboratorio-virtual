@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Sistema Masa-Resorte</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Sistema Masa-Resorte</h1>
+            <h2 class="text-xl text-gray-400">Movimiento Armónico Simple</h2>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-4 flex flex-col">
+                <canvas id="springCanvas" class="flex-grow"></canvas>
+                <div class="mt-4 border-t border-gray-700 pt-4">
+                    <h3 class="font-bold text-lg mb-2 text-center">Conservación de la Energía</h3>
+                    <div class="w-full bg-gray-700 rounded-full h-8 flex overflow-hidden">
+                        <div id="kinetic-bar" class="bg-blue-500 transition-all duration-100 ease-linear text-center text-white font-bold" style="width: 0%">E<sub>k</sub></div>
+                        <div id="potential-bar" class="bg-red-500 transition-all duration-100 ease-linear text-center text-white font-bold" style="width: 100%">E<sub>p</sub></div>
+                    </div>
+                    <div class="flex justify-between text-sm mt-1 px-1">
+                        <div><span class="inline-block w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>Energía Cinética</div>
+                         <div>Energía Total: <span id="total-energy" class="font-fira">0.00</span> J</div>
+                        <div><span class="inline-block w-3 h-3 bg-red-500 rounded-sm mr-1"></span>Energía Potencial</div>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <div class="mb-4">
+                    <label for="mass" class="block mb-1">Masa (m): <span id="mass-label" class="font-bold">1.0</span> kg</label>
+                    <input type="range" id="mass" min="0.5" max="5.0" value="1.0" step="0.1">
+                </div>
+
+                <div class="mb-6">
+                    <label for="k" class="block mb-1">Constante del Resorte (k): <span id="k-label" class="font-bold">100</span> N/m</label>
+                    <input type="range" id="k" min="20" max="300" value="100" step="5">
+                </div>
+
+                <div class="flex space-x-2 mb-6">
+                    <button id="play-pause-btn" class="flex-1 bg-lime-600 hover:bg-lime-500 text-white font-bold py-2 px-4 rounded-lg">Iniciar</button>
+                    <button id="reset-btn" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar</button>
+                </div>
+                
+                <div class="border-t border-gray-700 pt-4">
+                    <h4 class="font-bold text-lg text-lime-300">Datos en Vivo</h4>
+                    <p class="font-fira mt-2">Posición: <span id="pos-data">0.00</span> m</p>
+                    <p class="font-fira mt-1">Velocidad: <span id="vel-data">0.00</span> m/s</p>
+                    <p class="font-fira mt-1">Aceleración: <span id="acc-data">0.00</span> m/s²</p>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué es el Movimiento Armónico Simple?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                El Movimiento Armónico Simple (M.A.S.) describe la oscilación de un objeto cuando la fuerza que actúa sobre él es directamente proporcional a su desplazamiento desde una posición de equilibrio, y en dirección opuesta (Ley de Hooke: F = -kx). En este sistema, la energía mecánica total se conserva, transformándose continuamente entre energía potencial elástica (máxima en los extremos) y energía cinética (máxima en el punto de equilibrio). ¡Arrastra la masa para estirar el resorte y observa este principio en acción!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('springCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                mass: document.getElementById('mass'),
+                k: document.getElementById('k'),
+                playPauseBtn: document.getElementById('play-pause-btn'),
+                resetBtn: document.getElementById('reset-btn'),
+            };
+            const labels = {
+                mass: document.getElementById('mass-label'),
+                k: document.getElementById('k-label'),
+                pos: document.getElementById('pos-data'),
+                vel: document.getElementById('vel-data'),
+                acc: document.getElementById('acc-data'),
+                kineticBar: document.getElementById('kinetic-bar'),
+                potentialBar: document.getElementById('potential-bar'),
+                totalEnergy: document.getElementById('total-energy'),
+            };
+
+            let width, height;
+            let m, k, g = 9.8;
+            let position, velocity, acceleration;
+            let equilibrium, anchorY;
+            let isRunning = false;
+            let isDragging = false;
+            let lastTime = 0;
+            const damping = 0.998;
+            const pixelsPerMeter = 100;
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = 500; // Fixed height
+                canvas.width = width;
+                canvas.height = height;
+                
+                anchorY = 50;
+                resetSimulation();
+            }
+            
+            function resetSimulation() {
+                m = parseFloat(controls.mass.value);
+                k = parseFloat(controls.k.value);
+                
+                equilibrium = anchorY + (m * g) * pixelsPerMeter / k;
+                position = equilibrium; // Start at rest
+                velocity = 0;
+                acceleration = 0;
+                
+                isRunning = false;
+                controls.playPauseBtn.textContent = 'Iniciar';
+                lastTime = 0;
+                
+                draw();
+            }
+
+            function update(deltaTime) {
+                if (!isRunning || isDragging) return;
+
+                const displacement = position - equilibrium;
+                const springForce = -k * (displacement / pixelsPerMeter);
+                const gravityForce = m * g;
+                const totalForce = springForce + gravityForce;
+                
+                acceleration = totalForce / m;
+                velocity += acceleration * deltaTime;
+                velocity *= damping; // Apply damping
+                position += velocity * deltaTime * pixelsPerMeter;
+
+                // Energy calculation
+                const kineticEnergy = 0.5 * m * Math.pow(velocity, 2);
+                const potentialEnergy = 0.5 * k * Math.pow(displacement / pixelsPerMeter, 2);
+                const totalEnergy = kineticEnergy + potentialEnergy;
+                
+                const kineticPercent = (kineticEnergy / totalEnergy) * 100;
+                const potentialPercent = (potentialEnergy / totalEnergy) * 100;
+
+                labels.kineticBar.style.width = `${kineticPercent}%`;
+                labels.potentialBar.style.width = `${potentialPercent}%`;
+                labels.totalEnergy.textContent = totalEnergy.toFixed(2);
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+
+                // Update labels
+                labels.mass.textContent = `${m.toFixed(1)}`;
+                labels.k.textContent = `${k.toFixed(0)}`;
+                labels.pos.textContent = ((position - equilibrium) / pixelsPerMeter).toFixed(2);
+                labels.vel.textContent = velocity.toFixed(2);
+                labels.acc.textContent = acceleration.toFixed(2);
+
+                // Draw anchor
+                ctx.fillStyle = '#4a5568';
+                ctx.fillRect(width/2 - 50, anchorY - 10, 100, 10);
+                
+                // Draw equilibrium line
+                ctx.strokeStyle = 'rgba(163, 230, 53, 0.5)'; // lime-400 with opacity
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(width/2 - 60, equilibrium);
+                ctx.lineTo(width/2 + 60, equilibrium);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(163, 230, 53, 0.5)';
+                ctx.fillText('Equilibrio', width/2 + 70, equilibrium + 5);
+
+                // Draw spring
+                ctx.strokeStyle = '#cbd5e1'; // slate-300
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(width / 2, anchorY);
+                const coils = 20;
+                const coilWidth = 20;
+                const springLength = position - anchorY - 25; // 25 is half mass height
+                for (let i = 0; i < coils; i++) {
+                    const y = anchorY + (i / coils) * springLength;
+                    const x = width / 2 + coilWidth * Math.sin(i * Math.PI * 2);
+                    ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width / 2, position - 25);
+                ctx.stroke();
+
+                // Draw mass
+                ctx.fillStyle = '#a3e635'; // lime-400
+                ctx.fillRect(width/2 - 25, position - 25, 50, 50);
+                ctx.strokeStyle = '#1e293b'; // slate-800
+                ctx.lineWidth = 4;
+                ctx.strokeRect(width/2 - 25, position - 25, 50, 50);
+            }
+
+            function gameLoop(timestamp) {
+                if (!lastTime) lastTime = timestamp;
+                const deltaTime = (timestamp - lastTime) / 1000; // in seconds
+                
+                update(deltaTime);
+                draw();
+
+                lastTime = timestamp;
+                requestAnimationFrame(gameLoop);
+            }
+
+            // --- Event Listeners ---
+            controls.playPauseBtn.addEventListener('click', () => {
+                if (isDragging) return;
+                isRunning = !isRunning;
+                controls.playPauseBtn.textContent = isRunning ? 'Pausa' : 'Continuar';
+            });
+            
+            controls.resetBtn.addEventListener('click', resetSimulation);
+            controls.mass.addEventListener('input', resetSimulation);
+            controls.k.addEventListener('input', resetSimulation);
+
+            canvas.addEventListener('mousedown', e => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                if (mouseX > width/2 - 25 && mouseX < width/2 + 25 &&
+                    mouseY > position - 25 && mouseY < position + 25) {
+                    isDragging = true;
+                    isRunning = false;
+                    controls.playPauseBtn.textContent = 'Iniciar';
+                }
+            });
+
+            window.addEventListener('mousemove', e => {
+                if (!isDragging) return;
+                const rect = canvas.getBoundingClientRect();
+                position = e.clientY - rect.top;
+            });
+            
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    velocity = 0; // Release from rest
+                }
+            });
+
+            setupCanvas();
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>

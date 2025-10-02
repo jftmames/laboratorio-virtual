@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informática | Algoritmos de Ordenamiento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+        select {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3e635' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.5em 1.5em;
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="informatica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Informática</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Visualizador de Algoritmos de Ordenamiento</h1>
+        </header>
+
+        <main class="flex flex-col gap-4">
+            <div class="bg-black rounded-xl border border-gray-700 shadow-2xl p-2">
+                <canvas id="sortCanvas"></canvas>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-center">
+                
+                <div class="lg:col-span-1">
+                    <label for="algorithm" class="block mb-2 font-bold text-lime-300">Algoritmo</label>
+                    <select id="algorithm" class="w-full bg-gray-700 text-white p-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-lime-400 focus:outline-none">
+                        <option value="bubble">Burbuja</option>
+                        <option value="selection">Selección</option>
+                        <option value="insertion">Inserción</option>
+                    </select>
+                </div>
+
+                <div class="lg:col-span-2">
+                     <label for="size" class="flex justify-between items-center mb-2 font-bold text-lime-300"><span>Tamaño del Array</span><span id="size-value" class="font-mono bg-gray-700 px-2 py-1 rounded">50</span></label>
+                    <input id="size" type="range" min="10" max="200" value="50" step="5">
+                </div>
+                
+                <div class="lg:col-span-2">
+                    <label for="speed" class="flex justify-between items-center mb-2 font-bold text-lime-300"><span>Velocidad</span><span id="speed-value" class="font-mono bg-gray-700 px-2 py-1 rounded">50</span></label>
+                    <input id="speed" type="range" min="1" max="100" value="50">
+                </div>
+
+                <div class="md:col-span-2 lg:col-span-5 flex flex-col sm:flex-row gap-4 mt-4">
+                    <button id="reset-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Generar Nuevo Array</button>
+                    <button id="sort-btn" class="w-full bg-lime-600 hover:bg-lime-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Ordenar</button>
+                </div>
+            </div>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 id="algo-title" class="text-2xl font-bold text-lime-300 mb-3">Algoritmo de Burbuja (Bubble Sort)</h3>
+            <p id="algo-desc" class="text-gray-300 leading-relaxed">
+                Este método funciona revisando cada elemento de la lista que va a ser ordenada con el siguiente, intercambiándolos de posición si están en el orden equivocado. Es conocido por su simplicidad, pero es muy ineficiente para listas grandes. Su complejidad es O(n²).
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('sortCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const algorithmSelect = document.getElementById('algorithm');
+            const sizeSlider = document.getElementById('size');
+            const speedSlider = document.getElementById('speed');
+            const sizeValue = document.getElementById('size-value');
+            const speedValue = document.getElementById('speed-value');
+            const resetBtn = document.getElementById('reset-btn');
+            const sortBtn = document.getElementById('sort-btn');
+            
+            const algoTitle = document.getElementById('algo-title');
+            const algoDesc = document.getElementById('algo-desc');
+            
+            const descriptions = {
+                bubble: {
+                    title: "Algoritmo de Burbuja (Bubble Sort)",
+                    desc: "Este método funciona revisando cada elemento de la lista con el siguiente, intercambiándolos de posición si están en el orden equivocado. Es conocido por su simplicidad, pero es muy ineficiente para listas grandes. Su complejidad es O(n²)."
+                },
+                selection: {
+                    title: "Ordenamiento por Selección (Selection Sort)",
+                    desc: "Este algoritmo busca repetidamente el elemento mínimo de la porción no ordenada de la lista y lo coloca al principio. Aunque mejora un poco a Bubble Sort en cuanto a swaps, su complejidad sigue siendo O(n²)."
+                },
+                insertion: {
+                    title: "Ordenamiento por Inserción (Insertion Sort)",
+                    desc: "Funciona construyendo la lista ordenada final un elemento a la vez. Es mucho más eficiente que los anteriores para listas pequeñas o parcialmente ordenadas. Su complejidad en el peor caso es O(n²), pero en el mejor es O(n)."
+                }
+            };
+
+            let array = [];
+            let width, height;
+            let barWidth;
+            let isSorting = false;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.5;
+                canvas.width = width;
+                canvas.height = height;
+                if (!isSorting) generateArray();
+            }
+
+            function generateArray() {
+                array = [];
+                const size = parseInt(sizeSlider.value);
+                for (let i = 0; i < size; i++) {
+                    array.push(Math.random());
+                }
+                drawArray();
+            }
+
+            function drawArray(highlightIndices = {}, sortedIndex = -1) {
+                ctx.clearRect(0, 0, width, height);
+                barWidth = width / array.length;
+
+                for (let i = 0; i < array.length; i++) {
+                    const barHeight = array[i] * height;
+                    const x = i * barWidth;
+                    const y = height - barHeight;
+
+                    if (highlightIndices[i]) {
+                        ctx.fillStyle = highlightIndices[i];
+                    } else if (i <= sortedIndex) {
+                        ctx.fillStyle = '#4ade80'; // green-400 for sorted
+                    } else {
+                        ctx.fillStyle = '#e5e7eb'; // gray-200
+                    }
+                    
+                    ctx.fillRect(x, y, barWidth, barHeight);
+                    if (barWidth > 5) { // Add border if bars are wide enough
+                       ctx.strokeStyle = '#1f2937'; // gray-800
+                       ctx.strokeRect(x, y, barWidth, barHeight);
+                    }
+                }
+            }
+
+            function sleep() {
+                const speed = parseInt(speedSlider.value);
+                return new Promise(resolve => setTimeout(resolve, 101 - speed));
+            }
+
+            async function bubbleSort() {
+                for (let i = 0; i < array.length; i++) {
+                    for (let j = 0; j < array.length - i - 1; j++) {
+                        if (array[j] > array[j + 1]) {
+                            [array[j], array[j + 1]] = [array[j + 1], array[j]];
+                        }
+                        drawArray({ [j]: '#f87171', [j + 1]: '#fb923c' }, array.length - i);
+                        await sleep();
+                    }
+                }
+            }
+
+            async function selectionSort() {
+                for (let i = 0; i < array.length; i++) {
+                    let minIndex = i;
+                    for (let j = i + 1; j < array.length; j++) {
+                        if (array[j] < array[minIndex]) {
+                            minIndex = j;
+                        }
+                         drawArray({ [i]: '#f87171', [j]: '#fb923c', [minIndex]: '#a78bfa' }, i - 1);
+                         await sleep();
+                    }
+                    if (minIndex !== i) {
+                        [array[i], array[minIndex]] = [array[minIndex], array[i]];
+                    }
+                }
+            }
+
+            async function insertionSort() {
+                 for (let i = 1; i < array.length; i++) {
+                    let current = array[i];
+                    let j = i - 1;
+                    while (j >= 0 && array[j] > current) {
+                        array[j + 1] = array[j];
+                        drawArray({ [j]: '#f87171', [j + 1]: '#fb923c' }, i);
+                        await sleep();
+                        j--;
+                    }
+                    array[j + 1] = current;
+                }
+            }
+            
+            async function startSort() {
+                if (isSorting) return;
+                isSorting = true;
+                toggleControls(false);
+
+                const algorithm = algorithmSelect.value;
+                if (algorithm === 'bubble') await bubbleSort();
+                if (algorithm === 'selection') await selectionSort();
+                if (algorithm === 'insertion') await insertionSort();
+                
+                drawArray({}, array.length); // Final draw, all sorted
+                isSorting = false;
+                toggleControls(true);
+            }
+
+            function toggleControls(enabled) {
+                resetBtn.disabled = !enabled;
+                sortBtn.disabled = !enabled;
+                sizeSlider.disabled = !enabled;
+                algorithmSelect.disabled = !enabled;
+            }
+            
+            function updateDescription() {
+                const selected = algorithmSelect.value;
+                algoTitle.textContent = descriptions[selected].title;
+                algoDesc.textContent = descriptions[selected].desc;
+            }
+
+            sizeSlider.addEventListener('input', () => {
+                sizeValue.textContent = sizeSlider.value;
+                 if (!isSorting) generateArray();
+            });
+            speedSlider.addEventListener('input', () => {
+                speedValue.textContent = speedSlider.value;
+            });
+            
+            algorithmSelect.addEventListener('change', updateDescription);
+            resetBtn.addEventListener('click', generateArray);
+            sortBtn.addEventListener('click', startSort);
+
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Initial setup
+            resizeCanvas();
+            updateDescription();
+            sizeValue.textContent = sizeSlider.value;
+            speedValue.textContent = speedSlider.value;
+        });
+    </script>
+</body>
+</html>

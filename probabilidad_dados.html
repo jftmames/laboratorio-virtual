@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas | Simulador de Probabilidad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        .btn-action { transition: background-color 0.2s, transform 0.1s; }
+        .btn-action:active { transform: scale(0.95); }
+        .btn-action:disabled { background-color: #4b5563; cursor: not-allowed; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="matematicas.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Matemáticas</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Probabilidad y Dados</h1>
+            <h2 class="text-xl text-gray-400">Demostración del Teorema del Límite Central</h2>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-4">
+                <canvas id="probabilityCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <div class="mb-6">
+                    <label for="numDice" class="block mb-2">Número de Dados: <span id="dice-label" class="font-bold">1</span></label>
+                    <input type="range" id="numDice" min="1" max="8" value="1" step="1">
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button id="roll-1-btn" class="btn-action w-full bg-blue-600 hover:bg-blue-500 font-bold py-2 px-2 rounded-lg">Lanzar 1 vez</button>
+                    <button id="roll-100-btn" class="btn-action w-full bg-blue-600 hover:bg-blue-500 font-bold py-2 px-2 rounded-lg">Lanzar 100</button>
+                    <button id="roll-1000-btn" class="btn-action w-full bg-purple-600 hover:bg-purple-500 font-bold py-2 px-4 rounded-lg col-span-2">Lanzar 1000</button>
+                </div>
+
+                <div class="border-t border-gray-700 mt-4 pt-4">
+                     <button id="reset-btn" class="btn-action w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Simulación</button>
+                </div>
+
+                <div id="stats-panel" class="mt-6 pt-4 border-t border-gray-700">
+                    <h4 class="font-bold text-lg text-lime-300 mb-2">Estadísticas</h4>
+                    <div id="stats-display" class="font-fira text-gray-300 space-y-1">
+                        <p>Lanzamientos: <span id="total-rolls">0</span></p>
+                        <p>Media: <span id="mean-val">-</span></p>
+                        <p>Desv. Estándar: <span id="std-dev-val">-</span></p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué es el Teorema del Límite Central?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Este teorema es uno de los más importantes de la estadística. Dice que si sumas los resultados de muchos eventos aleatorios independientes (como tirar dados), la distribución de esas sumas tenderá a parecerse a una **distribución normal** (la famosa "campana de Gauss"), sin importar la distribución original de los eventos.
+                <br><br>
+                Prueba a lanzar con <strong>1 solo dado</strong>. Verás que la distribución es más o menos plana (uniforme). Ahora, aumenta el número de dados a 2, 3 o más y lanza muchas veces. ¡Observa cómo emerge la campana de Gauss!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('probabilityCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                numDice: document.getElementById('numDice'),
+                roll1Btn: document.getElementById('roll-1-btn'),
+                roll100Btn: document.getElementById('roll-100-btn'),
+                roll1000Btn: document.getElementById('roll-1000-btn'),
+                resetBtn: document.getElementById('reset-btn'),
+            };
+
+            const labels = {
+                dice: document.getElementById('dice-label'),
+                totalRolls: document.getElementById('total-rolls'),
+                mean: document.getElementById('mean-val'),
+                stdDev: document.getElementById('std-dev-val'),
+            };
+
+            let width, height;
+            let numDice = 1;
+            let frequencies = {};
+            let totalRolls = 0;
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = container.clientHeight;
+                canvas.width = width;
+                canvas.height = height;
+                draw();
+            }
+            
+            function resetSimulation() {
+                numDice = parseInt(controls.numDice.value);
+                frequencies = {};
+                totalRolls = 0;
+                labels.dice.textContent = numDice;
+                updateStats();
+                draw();
+            }
+
+            function rollDice(times) {
+                for (let i = 0; i < times; i++) {
+                    let sum = 0;
+                    for (let d = 0; d < numDice; d++) {
+                        sum += Math.floor(Math.random() * 6) + 1;
+                    }
+                    frequencies[sum] = (frequencies[sum] || 0) + 1;
+                }
+                totalRolls += times;
+                updateStats();
+                draw();
+            }
+
+            function updateStats() {
+                labels.totalRolls.textContent = totalRolls;
+                if (totalRolls === 0) {
+                    labels.mean.textContent = '-';
+                    labels.stdDev.textContent = '-';
+                    return;
+                }
+
+                let sum = 0;
+                let sumSq = 0;
+                for (const value in frequencies) {
+                    const count = frequencies[value];
+                    sum += value * count;
+                    sumSq += (value * value) * count;
+                }
+                
+                const mean = sum / totalRolls;
+                const variance = (sumSq / totalRolls) - (mean * mean);
+                const stdDev = Math.sqrt(variance);
+
+                labels.mean.textContent = mean.toFixed(2);
+                labels.stdDev.textContent = stdDev.toFixed(2);
+            }
+            
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+
+                const minSum = numDice;
+                const maxSum = numDice * 6;
+                const numBars = maxSum - minSum + 1;
+                const barWidth = Math.max(10, width / (numBars + 2));
+                const maxFreq = Math.max(1, ...Object.values(frequencies));
+                const chartHeight = height - 60;
+                const padding = 40;
+
+                // Draw bars
+                for (let i = minSum; i <= maxSum; i++) {
+                    const freq = frequencies[i] || 0;
+                    const barHeight = (freq / maxFreq) * chartHeight;
+                    const x = ((i - minSum) / (numBars -1)) * (width - 2*padding - barWidth) + padding;
+                    
+                    ctx.fillStyle = '#a3e635';
+                    ctx.fillRect(x, height - 30 - barHeight, barWidth, barHeight);
+
+                    // Draw labels
+                    ctx.fillStyle = '#d1d5db';
+                    ctx.textAlign = 'center';
+                    ctx.font = '14px Inter';
+                    ctx.fillText(i, x + barWidth / 2, height - 10);
+                }
+
+                // Draw Y-axis labels
+                ctx.fillStyle = '#9ca3af';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                const yTicks = 5;
+                for(let i=0; i<=yTicks; i++){
+                    const val = Math.round((maxFreq / yTicks) * i);
+                    const y = height - 30 - (chartHeight / yTicks * i);
+                    ctx.fillText(val, padding - 10, y);
+
+                    ctx.strokeStyle = '#374151';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width - padding, y);
+                    ctx.stroke();
+                }
+            }
+
+            // --- Event Listeners ---
+            controls.numDice.addEventListener('input', (e) => {
+                numDice = parseInt(e.target.value);
+                resetSimulation();
+            });
+
+            controls.roll1Btn.addEventListener('click', () => rollDice(1));
+            controls.roll100Btn.addEventListener('click', () => rollDice(100));
+            controls.roll1000Btn.addEventListener('click', () => rollDice(1000));
+            controls.resetBtn.addEventListener('click', resetSimulation);
+            
+            window.addEventListener('resize', setupCanvas);
+            
+            resetSimulation();
+            setupCanvas();
+        });
+    </script>
+</body>
+</html>

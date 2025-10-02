@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Simulador de Circuitos RLC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        .btn-action { transition: background-color 0.2s, transform 0.1s; }
+        .btn-action:active { transform: scale(0.95); }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+        .legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Circuitos RLC en Serie</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-4">
+                <canvas id="rlcCanvas"></canvas>
+                <div class="flex flex-wrap justify-center gap-4 mt-4 text-sm">
+                    <span class="flex items-center"><span class="legend-dot" style="background-color: #facc15;"></span>Voltaje Fuente</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background-color: #38bdf8;"></span>Corriente (I)</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background-color: #ef4444;"></span>Voltaje Resistor (Vr)</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background-color: #22c55e;"></span>Voltaje Inductor (Vl)</span>
+                    <span class="flex items-center"><span class="legend-dot" style="background-color: #a855f7;"></span>Voltaje Capacitor (Vc)</span>
+                </div>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Parámetros del Circuito</h3>
+                
+                <div class="mb-4">
+                    <label for="resistance" class="block mb-1">Resistencia (R): <span id="r-label" class="font-bold">10</span> Ω</label>
+                    <input type="range" id="resistance" min="1" max="50" value="10" step="1">
+                </div>
+                <div class="mb-4">
+                    <label for="inductance" class="block mb-1">Inductancia (L): <span id="l-label" class="font-bold">20</span> mH</label>
+                    <input type="range" id="inductance" min="1" max="100" value="20" step="1">
+                </div>
+                <div class="mb-4">
+                    <label for="capacitance" class="block mb-1">Capacitancia (C): <span id="c-label" class="font-bold">200</span> µF</label>
+                    <input type="range" id="capacitance" min="1" max="500" value="200" step="1">
+                </div>
+                <div class="mb-6">
+                    <label for="frequency" class="block mb-1">Frecuencia (f): <span id="f-label" class="font-bold">50</span> Hz</label>
+                    <input type="range" id="frequency" min="1" max="150" value="50" step="1">
+                </div>
+                 <button id="reset-btn" class="btn-action w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Simulación</button>
+                
+                <div class="border-t border-gray-700 mt-6 pt-4">
+                    <h4 class="font-bold text-lg text-lime-300 mb-2">Valores Calculados</h4>
+                    <div id="calc-display" class="font-fira text-gray-300 space-y-1">
+                        <p>Impedancia (Z): <span id="z-val">-</span> Ω</p>
+                        <p>Frec. Resonancia: <span id="res-val">-</span> Hz</p>
+                        <p>Ángulo Fase (φ): <span id="phase-val">-</span>°</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Cómo funciona un Circuito RLC?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Un circuito RLC combina los tres componentes pasivos básicos. La **resistencia (R)** disipa energía, la **inductancia (L)** la almacena en un campo magnético y la **capacitancia (C)** la almacena en un campo eléctrico. En corriente alterna, los inductores y capacitores se oponen al flujo de corriente (reactancia), y esta oposición depende de la frecuencia. La **impedancia (Z)** es la oposición total del circuito.
+                <br><br>
+                Prueba a ajustar la frecuencia de la fuente hasta que coincida con la **frecuencia de resonancia**. En este punto, la impedancia del circuito es mínima y la corriente alcanza su valor máximo. ¡Observa cómo la corriente y el voltaje de la fuente entran en fase!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('rlcCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                R: document.getElementById('resistance'),
+                L: document.getElementById('inductance'),
+                C: document.getElementById('capacitance'),
+                f: document.getElementById('frequency'),
+                resetBtn: document.getElementById('reset-btn'),
+            };
+
+            const labels = {
+                R: document.getElementById('r-label'),
+                L: document.getElementById('l-label'),
+                C: document.getElementById('c-label'),
+                f: document.getElementById('f-label'),
+                Z: document.getElementById('z-val'),
+                res: document.getElementById('res-val'),
+                phase: document.getElementById('phase-val'),
+            };
+
+            let width, height;
+            let time = 0;
+            const V_max = 5; // Amplitud del voltaje de la fuente
+            const historyLength = 500;
+            let plotHistory = { V_source: [], I: [], Vr: [], Vl: [], Vc: [] };
+
+            // State variables for the differential equation solver
+            let q = 0;  // charge on capacitor
+            let i = 0;  // current
+
+            let R, L, C, f;
+
+            function updateParameters() {
+                R = parseFloat(controls.R.value);
+                L = parseFloat(controls.L.value) / 1000; // mH to H
+                C = parseFloat(controls.C.value) / 1000000; // µF to F
+                f = parseFloat(controls.f.value);
+                
+                labels.R.textContent = `${R.toFixed(0)}`;
+                labels.L.textContent = `${(L*1000).toFixed(0)}`;
+                labels.C.textContent = `${(C*1000000).toFixed(0)}`;
+                labels.f.textContent = `${f.toFixed(0)}`;
+
+                // Calculate and display derived values
+                const w = 2 * Math.PI * f; // Angular frequency
+                const Xl = w * L; // Inductive reactance
+                const Xc = 1 / (w * C); // Capacitive reactance
+                const Z = Math.sqrt(R*R + (Xl - Xc)**2); // Impedance
+                const f_res = 1 / (2 * Math.PI * Math.sqrt(L*C)); // Resonant frequency
+                const phase_rad = Math.atan2(Xl - Xc, R);
+                const phase_deg = phase_rad * 180 / Math.PI;
+
+                labels.Z.textContent = Z.toFixed(2);
+                labels.res.textContent = f_res.toFixed(2);
+                labels.phase.textContent = phase_deg.toFixed(2);
+            }
+
+            function resetSimulation() {
+                time = 0;
+                q = 0;
+                i = 0;
+                plotHistory = { V_source: [], I: [], Vr: [], Vl: [], Vc: [] };
+                updateParameters();
+            }
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = container.clientHeight - 40; // Adjust for legend
+                canvas.width = width;
+                canvas.height = height;
+            }
+
+            function simulationStep(dt) {
+                const w = 2 * Math.PI * f;
+                const V_source = V_max * Math.sin(w * time);
+                
+                // dV/dt for the source
+                const dV_dt = V_max * w * Math.cos(w * time);
+
+                // Solve d²q/dt² = (dV/dt - R*dq/dt - q/C) / L
+                // where i = dq/dt
+                const i_dot = (dV_dt - (R * i) - (q / C)) / L; // di/dt
+                
+                // Update current and charge using Euler method
+                i += i_dot * dt;
+                q += i * dt;
+
+                const Vr = i * R;
+                const Vl = L * i_dot;
+                const Vc = q / C;
+
+                // Store history
+                Object.keys(plotHistory).forEach(key => {
+                    if (plotHistory[key].length >= historyLength) plotHistory[key].shift();
+                });
+                plotHistory.V_source.push(V_source);
+                plotHistory.I.push(i); // Current might need scaling to be visible
+                plotHistory.Vr.push(Vr);
+                plotHistory.Vl.push(Vl);
+                plotHistory.Vc.push(Vc);
+                
+                time += dt;
+            }
+            
+            function draw() {
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                const midY = height / 2;
+                
+                // Draw grid
+                ctx.strokeStyle = '#374151';
+                ctx.lineWidth = 1;
+                for (let j = 0; j < height; j += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, j);
+                    ctx.lineTo(width, j);
+                    ctx.stroke();
+                }
+
+                // Plotting scale
+                const maxVal = V_max * 1.5;
+
+                // Draw plots
+                const colors = { V_source: '#facc15', I: '#38bdf8', Vr: '#ef4444', Vl: '#22c55e', Vc: '#a855f7' };
+                
+                for (const [key, data] of Object.entries(plotHistory)) {
+                    ctx.strokeStyle = colors[key];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    for (let i = 0; i < data.length; i++) {
+                        const x = (i / historyLength) * width;
+                        // Scale current to be visible on the same plot
+                        const scale = (key === 'I') ? (V_max / (V_max / R * 0.5)) : 1; 
+                        const y = midY - (data[i] / maxVal) * (midY * 0.8) * scale;
+                        
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            let lastTime = 0;
+            function animate(timestamp) {
+                const deltaTime = (timestamp - lastTime) / 1000 || 0;
+                lastTime = timestamp;
+
+                // Run multiple simulation steps per frame for stability/accuracy
+                const stepsPerFrame = 10;
+                const dt = deltaTime / stepsPerFrame;
+                for(let i=0; i<stepsPerFrame; i++) {
+                   simulationStep(dt > 0.001 ? 0.001 : dt); // Clamp dt
+                }
+
+                draw();
+                requestAnimationFrame(animate);
+            }
+
+            // --- Event Listeners ---
+            Object.values(controls).forEach(control => {
+                control.addEventListener('input', resetSimulation);
+            });
+            
+            window.addEventListener('resize', setupCanvas);
+            
+            setupCanvas();
+            resetSimulation();
+            animate(0);
+        });
+    </script>
+</body>
+</html>

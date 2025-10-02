@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas | Transformaciones Geométricas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="matematicas.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Matemáticas</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Transformaciones Geométricas 2D</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-0 overflow-hidden">
+                <canvas id="transformCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <div class="mb-4">
+                    <label for="translateX" class="block mb-1">Traslación X: <span id="tx-label" class="font-bold">0</span> px</label>
+                    <input type="range" id="translateX" min="-200" max="200" value="0" step="1">
+                </div>
+                <div class="mb-4">
+                    <label for="translateY" class="block mb-1">Traslación Y: <span id="ty-label" class="font-bold">0</span> px</label>
+                    <input type="range" id="translateY" min="-200" max="200" value="0" step="1">
+                </div>
+                 <div class="mb-4">
+                    <label for="scale" class="block mb-1">Escala: <span id="scale-label" class="font-bold">1.0</span>x</label>
+                    <input type="range" id="scale" min="0.1" max="3.0" value="1.0" step="0.1">
+                </div>
+                <div class="mb-6">
+                    <label for="rotation" class="block mb-1">Rotación: <span id="rot-label" class="font-bold">0</span>°</label>
+                    <input type="range" id="rotation" min="-180" max="180" value="0" step="1">
+                </div>
+
+                <button id="reset-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Reiniciar Transformación</button>
+                
+                <div class="border-t border-gray-700 mt-6 pt-4">
+                    <h4 class="font-bold text-lg text-lime-300 mb-2">Matriz de Transformación</h4>
+                    <div id="matrix-display" class="font-fira bg-gray-900 p-3 rounded-lg text-center text-lg leading-relaxed">
+                        <div>[ 1.00, 0.00, 0.00 ]</div>
+                        <div>[ 0.00, 1.00, 0.00 ]</div>
+                        <div>[ 0.00, 0.00, 1.00 ]</div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Qué es una Matriz de Transformación?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                En geometría, cualquier transformación como mover, rotar o escalar una figura se puede representar mediante una operación matemática llamada **multiplicación de matrices**. La matriz que ves arriba contiene toda la información de la transformación actual. Cuando se multiplica por las coordenadas de un punto de la figura original, el resultado son las coordenadas del nuevo punto transformado. ¡Observa cómo los números en la matriz cambian al mover los deslizadores y cómo afectan a la figura!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('transformCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                tx: document.getElementById('translateX'),
+                ty: document.getElementById('translateY'),
+                scale: document.getElementById('scale'),
+                rotation: document.getElementById('rotation'),
+                resetBtn: document.getElementById('reset-btn'),
+            };
+            const labels = {
+                tx: document.getElementById('tx-label'),
+                ty: document.getElementById('ty-label'),
+                scale: document.getElementById('scale-label'),
+                rot: document.getElementById('rot-label'),
+            };
+            const matrixDisplay = document.getElementById('matrix-display');
+
+            let width, height, centerX, centerY;
+            const originalShape = [ {x: -50, y: -50}, {x: 50, y: -50}, {x: 50, y: 50}, {x: -50, y: 50} ]; // Un cuadrado
+
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.75; // Aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                centerX = width / 2;
+                centerY = height / 2;
+                draw();
+            }
+
+            function drawGrid() {
+                ctx.strokeStyle = '#374151'; // gray-700
+                ctx.lineWidth = 1;
+                // Vertical lines
+                for (let x = centerX % 50; x < width; x += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                // Horizontal lines
+                for (let y = centerY % 50; y < height; y += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+                // Axes
+                ctx.strokeStyle = '#6b7280'; // gray-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, height);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(width, centerY);
+                ctx.stroke();
+            }
+
+            function applyTransform(point, matrix) {
+                const px = point.x;
+                const py = point.y;
+                const newX = px * matrix[0][0] + py * matrix[0][1] + matrix[0][2];
+                const newY = px * matrix[1][0] + py * matrix[1][1] + matrix[1][2];
+                return { x: newX, y: newY };
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+                drawGrid();
+
+                // Get values
+                const tx = parseFloat(controls.tx.value);
+                const ty = -parseFloat(controls.ty.value); // Y is inverted in canvas
+                const scale = parseFloat(controls.scale.value);
+                const angle = parseFloat(controls.rotation.value) * Math.PI / 180;
+                
+                // Update labels
+                labels.tx.textContent = `${tx.toFixed(0)}`;
+                labels.ty.textContent = `${-ty.toFixed(0)}`;
+                labels.scale.textContent = `${scale.toFixed(1)}`;
+                labels.rot.textContent = `${(angle * 180 / Math.PI).toFixed(0)}`;
+
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+
+                // Create transformation matrix (Scale -> Rotate -> Translate)
+                const matrix = [
+                    [scale * cos, -scale * sin, tx],
+                    [scale * sin,  scale * cos, ty],
+                    [0, 0, 1]
+                ];
+
+                // Update matrix display
+                matrixDisplay.innerHTML = `
+                    <div>[ ${matrix[0][0].toFixed(2)}, ${matrix[0][1].toFixed(2)}, ${matrix[0][2].toFixed(2)} ]</div>
+                    <div>[ ${matrix[1][0].toFixed(2)}, ${matrix[1][1].toFixed(2)}, ${matrix[1][2].toFixed(2)} ]</div>
+                    <div>[ ${matrix[2][0].toFixed(2)}, ${matrix[2][1].toFixed(2)}, ${matrix[2][2].toFixed(2)} ]</div>
+                `;
+
+                // Draw original shape (ghost)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(centerX + originalShape[0].x, centerY + originalShape[0].y);
+                for (let i = 1; i < originalShape.length; i++) {
+                    ctx.lineTo(centerX + originalShape[i].x, centerY + originalShape[i].y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+
+                // Draw transformed shape
+                const transformedShape = originalShape.map(p => applyTransform(p, matrix));
+                ctx.fillStyle = 'rgba(163, 230, 53, 0.5)'; // lime-400 with opacity
+                ctx.strokeStyle = '#a3e635';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(centerX + transformedShape[0].x, centerY + transformedShape[0].y);
+                for (let i = 1; i < transformedShape.length; i++) {
+                    ctx.lineTo(centerX + transformedShape[i].x, centerY + transformedShape[i].y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+            
+            function reset() {
+                controls.tx.value = 0;
+                controls.ty.value = 0;
+                controls.scale.value = 1.0;
+                controls.rotation.value = 0;
+                draw();
+            }
+
+            // --- Event Listeners ---
+            Object.values(controls).forEach(control => {
+                if (control.id !== 'reset-btn') {
+                    control.addEventListener('input', draw);
+                }
+            });
+            
+            controls.resetBtn.addEventListener('click', reset);
+            window.addEventListener('resize', setupCanvas);
+            setupCanvas();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Movimiento Parabólico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568;
+            border-radius: 5px; outline: none; opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #818cf8; /* indigo-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px; height: 20px; background: #818cf8;
+            cursor: pointer; border-radius: 50%;
+        }
+        .data-value { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-indigo-400 hover:text-indigo-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Laboratorio de Movimiento Parabólico</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700 shadow-2xl p-4">
+                <canvas id="projectileCanvas"></canvas>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl flex flex-col space-y-4">
+                <div>
+                    <h3 class="text-xl font-bold text-indigo-300 mb-2">Controles</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="angle-slider" class="flex justify-between items-center text-lg"><span>Ángulo (θ)</span> <span id="angle-value" class="font-mono bg-gray-700 px-2 py-1 rounded">45°</span></label>
+                            <input id="angle-slider" type="range" min="0" max="90" value="45" step="1">
+                        </div>
+                        <div>
+                            <label for="velocity-slider" class="flex justify-between items-center text-lg"><span>Velocidad (v₀)</span> <span id="velocity-value" class="font-mono bg-gray-700 px-2 py-1 rounded">50 m/s</span></label>
+                            <input id="velocity-slider" type="range" min="1" max="100" value="50" step="1">
+                        </div>
+                        <div>
+                            <label for="gravity-slider" class="flex justify-between items-center text-lg"><span>Gravedad (g)</span> <span id="gravity-value" class="font-mono bg-gray-700 px-2 py-1 rounded">9.8 m/s²</span></label>
+                            <input id="gravity-slider" type="range" min="1" max="25" value="9.8" step="0.1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-2">
+                    <button id="fire-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">🚀 Disparar</button>
+                    <button id="clear-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Limpiar</button>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-indigo-300 mb-3 border-t border-gray-700 pt-4">Resultados del Último Disparo</h3>
+                    <div id="results-placeholder" class="text-gray-500 text-center py-4">Dispara el proyectil para ver los resultados.</div>
+                    <div id="results-data" class="hidden space-y-2 font-mono text-lg bg-gray-900 p-4 rounded-lg">
+                        <p>Altura Máxima: <span id="max-height-value" class="data-value text-yellow-400"></span></p>
+                        <p>Alcance: <span id="range-value" class="data-value text-green-400"></span></p>
+                        <p>Tiempo de Vuelo: <span id="time-value" class="data-value text-cyan-400"></span></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('projectileCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const angleSlider = document.getElementById('angle-slider');
+            const velocitySlider = document.getElementById('velocity-slider');
+            const gravitySlider = document.getElementById('gravity-slider');
+            const angleValue = document.getElementById('angle-value');
+            const velocityValue = document.getElementById('velocity-value');
+            const gravityValue = document.getElementById('gravity-value');
+
+            const fireBtn = document.getElementById('fire-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            
+            const resultsPlaceholder = document.getElementById('results-placeholder');
+            const resultsData = document.getElementById('results-data');
+            const maxHeightValue = document.getElementById('max-height-value');
+            const rangeValue = document.getElementById('range-value');
+            const timeValue = document.getElementById('time-value');
+
+            let width, height, scale, originX, originY;
+            let projectiles = [];
+            let animationFrameId;
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.6; // Maintain aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                scale = width / 250; // Adjust scale based on width
+                originX = 30;
+                originY = height - 30;
+                drawScene();
+            }
+
+            function drawGrid() {
+                ctx.strokeStyle = '#374151'; // gray-700
+                ctx.lineWidth = 1;
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#6b7280';
+                
+                // Vertical lines
+                for (let i = 1; (originX + i * scale * 10) < width; i++) {
+                    const x = originX + i * scale * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, originY);
+                    ctx.stroke();
+                    ctx.fillText(`${i*10}m`, x - 10, originY + 15);
+                }
+                 // Horizontal lines
+                for (let i = 1; (originY - i * scale * 10) > 0; i++) {
+                    const y = originY - i * scale * 10;
+                    ctx.beginPath();
+                    ctx.moveTo(originX, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                    ctx.fillText(`${i*10}m`, originX - 28, y + 4);
+                }
+            }
+            
+            function drawCannon(angle) {
+                ctx.save();
+                ctx.translate(originX, originY);
+                ctx.rotate(-angle);
+                ctx.fillStyle = '#9ca3af'; // gray-400
+                ctx.fillRect(0, -5, 40, 10);
+                ctx.beginPath();
+                ctx.arc(0, 0, 15, 0, 2*Math.PI);
+                ctx.fillStyle = '#6b7280'; // gray-500
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function drawScene() {
+                ctx.clearRect(0, 0, width, height);
+                // Draw ground
+                ctx.fillStyle = '#1e3a8a'; // blue-900
+                ctx.fillRect(0, originY, width, height - originY);
+                ctx.strokeStyle = '#3b82f6'; // blue-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, originY);
+                ctx.lineTo(width, originY);
+                ctx.stroke();
+                
+                drawGrid();
+                const currentAngle = parseFloat(angleSlider.value) * Math.PI / 180;
+                drawCannon(currentAngle);
+
+                projectiles.forEach(p => drawTrajectory(p.path));
+            }
+
+            function drawTrajectory(path, color = '#facc15') { // yellow-400
+                if (path.length < 2) return;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(originX + path[0].x * scale, originY - path[0].y * scale);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(originX + path[i].x * scale, originY - path[i].y * scale);
+                }
+                ctx.stroke();
+            }
+
+            function fire() {
+                const angle = parseFloat(angleSlider.value) * Math.PI / 180;
+                const v0 = parseFloat(velocitySlider.value);
+                const g = parseFloat(gravitySlider.value);
+
+                const v0x = v0 * Math.cos(angle);
+                const v0y = v0 * Math.sin(angle);
+                
+                let t = 0;
+                const dt = 0.05; // time step
+                let x = 0;
+                let y = 0;
+                
+                const path = [];
+
+                const projectile = { x, y, v0x, v0y, g, t, path, done: false };
+                projectiles.push(projectile);
+
+                if (!animationFrameId) {
+                    animate();
+                }
+            }
+
+            function animate() {
+                let allDone = true;
+                
+                projectiles.forEach(p => {
+                    if(p.done) return;
+                    allDone = false;
+
+                    const new_x = p.v0x * p.t;
+                    const new_y = p.v0y * p.t - 0.5 * p.g * p.t * p.t;
+
+                    if (new_y < 0) {
+                        p.done = true;
+                        updateResults(p);
+                    } else {
+                        p.path.push({ x: new_x, y: new_y });
+                        p.t += 0.05;
+                    }
+                });
+                
+                drawScene();
+
+                if (allDone) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                } else {
+                    animationFrameId = requestAnimationFrame(animate);
+                }
+            }
+            
+            function updateResults(p) {
+                const v0y = p.v0y;
+                const g = p.g;
+                const v0x = p.v0x;
+
+                const timeToApex = v0y / g;
+                const maxHeight = (v0y * v0y) / (2 * g);
+                const totalTime = 2 * timeToApex;
+                const range = v0x * totalTime;
+
+                resultsPlaceholder.classList.add('hidden');
+                resultsData.classList.remove('hidden');
+
+                maxHeightValue.textContent = `${maxHeight.toFixed(2)} m`;
+                rangeValue.textContent = `${range.toFixed(2)} m`;
+                timeValue.textContent = `${totalTime.toFixed(2)} s`;
+            }
+
+            function updateUI() {
+                angleValue.textContent = `${angleSlider.value}°`;
+                velocityValue.textContent = `${velocitySlider.value} m/s`;
+                gravityValue.textContent = `${parseFloat(gravitySlider.value).toFixed(1)} m/s²`;
+                const currentAngle = parseFloat(angleSlider.value) * Math.PI / 180;
+                drawScene();
+                drawCannon(currentAngle);
+            }
+            
+            angleSlider.addEventListener('input', updateUI);
+            velocitySlider.addEventListener('input', updateUI);
+            gravitySlider.addEventListener('input', updateUI);
+            
+            fireBtn.addEventListener('click', fire);
+            clearBtn.addEventListener('click', () => {
+                projectiles = [];
+                resultsPlaceholder.classList.remove('hidden');
+                resultsData.classList.add('hidden');
+                drawScene();
+            });
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Órbitas y Gravedad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568;
+            border-radius: 5px; outline: none; opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #c4b5fd; /* violet-300 */
+            cursor: pointer; border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px; height: 20px; background: #c4b5fd;
+            cursor: pointer; border-radius: 50%;
+        }
+        .data-value { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-indigo-400 hover:text-indigo-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Órbitas y Gravedad</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-black rounded-xl border border-gray-700 shadow-2xl p-2 relative">
+                <canvas id="orbitCanvas"></canvas>
+                <div id="status-display" class="absolute top-4 left-4 bg-black bg-opacity-50 text-white p-2 rounded-lg font-mono">--</div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl flex flex-col space-y-4">
+                <div>
+                    <h3 class="text-xl font-bold text-violet-300 mb-2">Parámetros Iniciales</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="flex justify-between items-center text-lg"><span>Masa de la Estrella</span> <span id="star-mass-value" class="font-mono bg-gray-700 px-2 py-1 rounded">1000</span></label>
+                            <input id="star-mass-slider" type="range" min="100" max="5000" value="1000" step="100">
+                        </div>
+                        <div>
+                            <label class="flex justify-between items-center text-lg"><span>Velocidad del Planeta</span> <span id="planet-velocity-value" class="font-mono bg-gray-700 px-2 py-1 rounded">3</span></label>
+                            <input id="planet-velocity-slider" type="range" min="0" max="15" value="3" step="0.1">
+                        </div>
+                        <div>
+                            <label class="flex justify-between items-center text-lg"><span>Distancia Inicial</span> <span id="planet-distance-value" class="font-mono bg-gray-700 px-2 py-1 rounded">150</span></label>
+                            <input id="planet-distance-slider" type="range" min="50" max="300" value="150" step="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-2">
+                    <button id="launch-btn" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">🪐 Lanzar</button>
+                    <button id="reset-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Reiniciar</button>
+                </div>
+                 <button id="pause-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 hidden">Pausar</button>
+
+                <div>
+                    <h3 class="text-xl font-bold text-violet-300 mb-3 border-t border-gray-700 pt-4">Datos en Vivo</h3>
+                     <div id="live-data" class="hidden space-y-2 font-mono text-lg bg-gray-900 p-4 rounded-lg">
+                        <p>Fuerza: <span id="force-value" class="data-value text-red-400">0.00</span></p>
+                        <p>Velocidad: <span id="velocity-value" class="data-value text-green-400">0.00</span></p>
+                        <p>Distancia: <span id="distance-value" class="data-value text-cyan-400">0.00</span></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-violet-300 mb-3">La Ley de Gravitación Universal</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Esta simulación se basa en la ley de Newton, que dice que la fuerza de atracción entre dos objetos depende de sus masas y de la distancia entre ellos. La fórmula es:
+                <br>
+                <code class="block text-center text-xl mt-2 font-mono text-violet-300">F = G * (m₁ * m₂) / r²</code>
+                <br>
+                Una velocidad inicial precisa permite que un planeta "caiga" constantemente hacia la estrella sin chocar, resultando en una órbita estable. ¡Prueba diferentes configuraciones para ver qué tipo de órbita consigues!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('orbitCanvas');
+            const ctx = canvas.getContext('2d');
+            const statusDisplay = document.getElementById('status-display');
+
+            // Controls
+            const starMassSlider = document.getElementById('star-mass-slider');
+            const planetVelocitySlider = document.getElementById('planet-velocity-slider');
+            const planetDistanceSlider = document.getElementById('planet-distance-slider');
+            const starMassValue = document.getElementById('star-mass-value');
+            const planetVelocityValue = document.getElementById('planet-velocity-value');
+            const planetDistanceValue = document.getElementById('planet-distance-value');
+
+            // Buttons
+            const launchBtn = document.getElementById('launch-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+
+            // Live Data
+            const liveDataContainer = document.getElementById('live-data');
+            const forceValueEl = document.getElementById('force-value');
+            const velocityValueEl = document.getElementById('velocity-value');
+            const distanceValueEl = document.getElementById('distance-value');
+
+            let width, height, centerX, centerY;
+            let animationFrameId;
+            let isPaused = false;
+
+            const G = 50; // Gravitational constant for the simulation
+            let star, planet;
+            let trail = [];
+
+            class CelestialBody {
+                constructor(x, y, vx, vy, mass, radius, color) {
+                    this.x = x; this.y = y;
+                    this.vx = vx; this.vy = vy;
+                    this.mass = mass;
+                    this.radius = radius;
+                    this.color = color;
+                }
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.7;
+                canvas.width = width;
+                canvas.height = height;
+                centerX = width / 2;
+                centerY = height / 2;
+                resetSimulation();
+            }
+
+            function initSimulation() {
+                const starMass = parseFloat(starMassSlider.value);
+                const planetInitialVelocity = parseFloat(planetVelocitySlider.value);
+                const planetInitialDistance = parseFloat(planetDistanceSlider.value);
+
+                star = new CelestialBody(centerX, centerY, 0, 0, starMass, 15, 'yellow');
+                planet = new CelestialBody(centerX, centerY - planetInitialDistance, planetInitialVelocity, 0, 1, 5, '#60a5fa');
+                trail = [];
+                isPaused = false;
+                
+                launchBtn.classList.add('hidden');
+                pauseBtn.classList.remove('hidden');
+                liveDataContainer.classList.remove('hidden');
+                statusDisplay.textContent = 'En órbita';
+
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                animate();
+            }
+
+            function resetSimulation() {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+                star = null;
+                planet = null;
+                trail = [];
+                drawScene();
+                statusDisplay.textContent = 'Listo para lanzar';
+                launchBtn.classList.remove('hidden');
+                pauseBtn.classList.add('hidden');
+                pauseBtn.textContent = 'Pausar';
+                liveDataContainer.classList.add('hidden');
+            }
+            
+            function drawScene() {
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, width, height);
+
+                // Draw trail
+                if (trail.length > 1) {
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(trail[0].x, trail[0].y);
+                    for (let i = 1; i < trail.length; i++) {
+                        ctx.lineTo(trail[i].x, trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+                
+                if (star) star.draw();
+                if (planet) planet.draw();
+                else { // Draw preview planet
+                    const previewDistance = parseFloat(planetDistanceSlider.value);
+                     new CelestialBody(centerX, centerY - previewDistance, 0, 0, 1, 5, '#60a5fa').draw();
+                }
+            }
+            
+            function updatePhysics() {
+                const dx = star.x - planet.x;
+                const dy = star.y - planet.y;
+                const distSq = dx * dx + dy * dy;
+                const dist = Math.sqrt(distSq);
+
+                if (dist < star.radius + planet.radius) {
+                    statusDisplay.textContent = '¡Colisión!';
+                    cancelAnimationFrame(animationFrameId);
+                    return;
+                }
+                
+                if (dist > width * 2) { // Escaped the system
+                    statusDisplay.textContent = '¡Escape!';
+                    cancelAnimationFrame(animationFrameId);
+                    return;
+                }
+
+                const force = G * star.mass / distSq;
+                const ax = force * dx / dist;
+                const ay = force * dy / dist;
+
+                planet.vx += ax * 0.1; // dt = 0.1
+                planet.vy += ay * 0.1;
+                planet.x += planet.vx * 0.1;
+                planet.y += planet.vy * 0.1;
+
+                trail.push({ x: planet.x, y: planet.y });
+                if (trail.length > 1000) trail.shift();
+                
+                // Update live data
+                forceValueEl.textContent = force.toFixed(2);
+                const currentVelocity = Math.sqrt(planet.vx*planet.vx + planet.vy*planet.vy);
+                velocityValueEl.textContent = currentVelocity.toFixed(2);
+                distanceValueEl.textContent = dist.toFixed(2);
+            }
+
+            function animate() {
+                if (!isPaused) {
+                   updatePhysics();
+                   drawScene();
+                }
+                animationFrameId = requestAnimationFrame(animate);
+            }
+
+            function updateUI() {
+                starMassValue.textContent = starMassSlider.value;
+                planetVelocityValue.textContent = planetVelocitySlider.value;
+                planetDistanceValue.textContent = planetDistanceSlider.value;
+                if (!planet) drawScene();
+            }
+
+            starMassSlider.addEventListener('input', updateUI);
+            planetVelocitySlider.addEventListener('input', updateUI);
+            planetDistanceSlider.addEventListener('input', updateUI);
+            
+            launchBtn.addEventListener('click', initSimulation);
+            resetBtn.addEventListener('click', resetSimulation);
+            pauseBtn.addEventListener('click', () => {
+                isPaused = !isPaused;
+                pauseBtn.textContent = isPaused ? 'Continuar' : 'Pausar';
+            });
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>

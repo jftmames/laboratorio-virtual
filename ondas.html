@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Interferencia de Ondas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568;
+            border-radius: 5px; outline: none; opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #67e8f9; /* cyan-300 */
+            cursor: pointer; border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px; height: 20px; background: #67e8f9;
+            cursor: pointer; border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-indigo-400 hover:text-indigo-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Interferencia de Ondas</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-black rounded-xl border border-gray-700 shadow-2xl p-2 relative">
+                <canvas id="waveCanvas"></canvas>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl flex flex-col space-y-4">
+                <div>
+                    <h3 class="text-xl font-bold text-cyan-300 mb-2">Controles de Onda</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="flex justify-between items-center text-lg"><span>Longitud de Onda (λ)</span> <span id="wavelength-value" class="font-mono bg-gray-700 px-2 py-1 rounded">50</span></label>
+                            <input id="wavelength-slider" type="range" min="10" max="100" value="50" step="1">
+                        </div>
+                        <div>
+                            <label class="flex justify-between items-center text-lg"><span>Separación Fuentes</span> <span id="separation-value" class="font-mono bg-gray-700 px-2 py-1 rounded">100</span></label>
+                            <input id="separation-slider" type="range" min="20" max="300" value="100" step="5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-2">
+                    <button id="reset-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Reiniciar</button>
+                    <button id="pause-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Pausar</button>
+                </div>
+                 
+                 <div class="border-t border-gray-700 pt-4">
+                    <h3 class="text-xl font-bold text-cyan-300 mb-3">Instrucciones</h3>
+                    <p class="text-gray-400">
+                        Arrastra las dos fuentes de ondas (círculos blancos) para cambiar su posición. Observa cómo cambian los patrones.
+                    </p>
+                 </div>
+            </div>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-cyan-300 mb-3">¿Qué estás viendo?</h3>
+            <div class="grid md:grid-cols-2 gap-6 text-gray-300 leading-relaxed">
+                <div>
+                    <h4 class="font-bold text-lg text-white">Interferencia Constructiva</h4>
+                    <p>Las líneas más brillantes aparecen donde las crestas de ambas ondas se suman, creando una onda más grande. Esto sucede cuando la diferencia de caminos desde las fuentes es un múltiplo entero de la longitud de onda (nλ).</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-lg text-white">Interferencia Destructiva</h4>
+                    <p>Las líneas oscuras y quietas son zonas donde la cresta de una onda se encuentra con el valle de la otra, cancelándose mutuamente. Ocurre cuando la diferencia de caminos es un múltiplo impar de media longitud de onda ((n+1/2)λ).</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Controls
+            const wavelengthSlider = document.getElementById('wavelength-slider');
+            const separationSlider = document.getElementById('separation-slider');
+            const wavelengthValue = document.getElementById('wavelength-value');
+            const separationValue = document.getElementById('separation-value');
+
+            // Buttons
+            const resetBtn = document.getElementById('reset-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+
+            let width, height, imageData, data;
+            let animationFrameId, time = 0, isPaused = false;
+            
+            let source1 = { x: 0, y: 0, isDragging: false };
+            let source2 = { x: 0, y: 0, isDragging: false };
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.7;
+                canvas.width = width;
+                canvas.height = height;
+                imageData = ctx.createImageData(width, height);
+                data = imageData.data;
+                resetSources();
+            }
+
+            function resetSources() {
+                const separation = parseFloat(separationSlider.value);
+                source1.x = width / 2 - separation / 2;
+                source1.y = height / 2;
+                source2.x = width / 2 + separation / 2;
+                source2.y = height / 2;
+            }
+
+            function calculateAndDrawWaves() {
+                const wavelength = parseFloat(wavelengthSlider.value);
+                const k = 2 * Math.PI / wavelength;
+
+                for (let x = 0; x < width; x++) {
+                    for (let y = 0; y < height; y++) {
+                        const dx1 = x - source1.x;
+                        const dy1 = y - source1.y;
+                        const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+                        const dx2 = x - source2.x;
+                        const dy2 = y - source2.y;
+                        const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+                        const value1 = Math.sin(dist1 * k - time);
+                        const value2 = Math.sin(dist2 * k - time);
+                        
+                        const sum = (value1 + value2) * 127.5;
+                        const index = (y * width + x) * 4;
+
+                        data[index] = 0;
+                        data[index + 1] = Math.max(0, sum); // Green for positive
+                        data[index + 2] = Math.max(0, -sum); // Blue for negative
+                        data[index + 3] = 255; // Alpha
+                    }
+                }
+                ctx.putImageData(imageData, 0, 0);
+
+                // Draw sources
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(source1.x, source1.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(source2.x, source2.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function animate() {
+                if (!isPaused) {
+                    time += 0.1;
+                    calculateAndDrawWaves();
+                }
+                animationFrameId = requestAnimationFrame(animate);
+            }
+            
+            function updateUI() {
+                wavelengthValue.textContent = wavelengthSlider.value;
+                separationValue.textContent = separationSlider.value;
+                if(animationFrameId === undefined || isPaused) { // Only reset if not actively animating
+                    resetSources();
+                    calculateAndDrawWaves(); // Redraw static preview
+                }
+            }
+            
+            // Mouse controls for dragging sources
+            function getMousePos(evt) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: evt.clientX - rect.left,
+                    y: evt.clientY - rect.top
+                };
+            }
+
+            canvas.addEventListener('mousedown', (e) => {
+                const pos = getMousePos(e);
+                const d1 = Math.hypot(pos.x - source1.x, pos.y - source1.y);
+                const d2 = Math.hypot(pos.x - source2.x, pos.y - source2.y);
+                if (d1 < 15) {
+                    source1.isDragging = true;
+                } else if (d2 < 15) {
+                    source2.isDragging = true;
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!source1.isDragging && !source2.isDragging) return;
+                const pos = getMousePos(e);
+                if (source1.isDragging) {
+                    source1.x = pos.x;
+                    source1.y = pos.y;
+                }
+                if (source2.isDragging) {
+                    source2.x = pos.x;
+                    source2.y = pos.y;
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                source1.isDragging = false;
+                source2.isDragging = false;
+            });
+             canvas.addEventListener('mouseleave', () => {
+                source1.isDragging = false;
+                source2.isDragging = false;
+            });
+
+            // Init
+            wavelengthSlider.addEventListener('input', updateUI);
+            separationSlider.addEventListener('input', updateUI);
+
+            resetBtn.addEventListener('click', () => {
+                time = 0;
+                resetSources();
+                if (isPaused) calculateAndDrawWaves();
+            });
+            
+            pauseBtn.addEventListener('click', () => {
+                isPaused = !isPaused;
+                pauseBtn.textContent = isPaused ? 'Continuar' : 'Pausar';
+            });
+
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            animate();
+        });
+    </script>
+</body>
+</html>

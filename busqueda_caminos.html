@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informática | Búsqueda de Caminos (A*)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tool-btn.active {
+            background-color: #a3e635; /* lime-400 */
+            color: #1e293b; /* slate-800 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="informatica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Informática</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Visualizador de Búsqueda de Caminos</h1>
+            <h2 class="text-xl text-gray-400">Algoritmo A* (A-Estrella)</h2>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-0 overflow-hidden">
+                <canvas id="pathfindingCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Herramientas</h3>
+                
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button id="start-btn" class="tool-btn p-2 rounded-lg bg-gray-700 border border-transparent hover:border-lime-400">Inicio</button>
+                    <button id="end-btn" class="tool-btn p-2 rounded-lg bg-gray-700 border border-transparent hover:border-lime-400">Final</button>
+                    <button id="wall-btn" class="tool-btn active p-2 rounded-lg bg-gray-700 border border-transparent hover:border-lime-400">Obstáculo</button>
+                    <button id="erase-btn" class="tool-btn p-2 rounded-lg bg-gray-700 border border-transparent hover:border-lime-400">Borrar</button>
+                </div>
+
+                <button id="find-path-btn" class="w-full bg-lime-600 hover:bg-lime-500 text-white font-bold py-2 px-4 rounded-lg mb-2">Encontrar Camino</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="clear-path-btn" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg">Limpiar Camino</button>
+                    <button id="clear-board-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg">Limpiar Todo</button>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">¿Cómo funciona el Algoritmo A*?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                A* es un algoritmo de búsqueda "informado" que se utiliza para encontrar la ruta más corta entre dos puntos. A diferencia de otros algoritmos que exploran a ciegas, A* es inteligente: utiliza una **heurística** (una estimación) para adivinar qué camino es el más prometedor. En cada paso, evalúa las celdas vecinas y elige la que tiene el menor "coste", que es la suma de dos valores: 1) el coste real para llegar hasta esa celda (celdas amarillas) y 2) el coste estimado desde esa celda hasta el final. Esto le permite encontrar la solución óptima de manera muy eficiente, sin tener que explorar todo el mapa.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('pathfindingCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const toolBtns = {
+                start: document.getElementById('start-btn'),
+                end: document.getElementById('end-btn'),
+                wall: document.getElementById('wall-btn'),
+                erase: document.getElementById('erase-btn'),
+            };
+            const actionBtns = {
+                findPath: document.getElementById('find-path-btn'),
+                clearPath: document.getElementById('clear-path-btn'),
+                clearBoard: document.getElementById('clear-board-btn'),
+            };
+
+            let width, height, cols, rows, cellSize;
+            let grid = [];
+            let startNode = null, endNode = null;
+            let currentTool = 'wall';
+            let isDrawing = false;
+            
+            const COLORS = {
+                GRID: '#4a5568',
+                EMPTY: '#1f2937',
+                START: '#4ade80', // green-400
+                END: '#f43f5e',   // rose-500
+                WALL: '#64748b',  // slate-500
+                OPEN: 'rgba(234, 179, 8, 0.3)', // yellow-500
+                CLOSED: 'rgba(59, 130, 246, 0.2)', // blue-500
+                PATH: '#a3e635' // lime-400
+            };
+
+            class Node {
+                constructor(i, j) {
+                    this.i = i; this.j = j;
+                    this.x = i * cellSize; this.y = j * cellSize;
+                    this.isWall = false;
+                    this.isStart = false;
+                    this.isEnd = false;
+                    // A* properties
+                    this.g = 0; // cost from start
+                    this.h = 0; // heuristic cost to end
+                    this.f = 0; // g + h
+                    this.parent = null;
+                }
+                draw(color) {
+                    ctx.fillStyle = color;
+                    ctx.fillRect(this.x, this.y, cellSize, cellSize);
+                }
+            }
+
+            function setup() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.6; // Aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                
+                cellSize = 25;
+                cols = Math.floor(width / cellSize);
+                rows = Math.floor(height / cellSize);
+                
+                createGrid();
+                drawGrid();
+            }
+
+            function createGrid() {
+                grid = new Array(cols);
+                for (let i = 0; i < cols; i++) {
+                    grid[i] = new Array(rows);
+                    for (let j = 0; j < rows; j++) {
+                        grid[i][j] = new Node(i, j);
+                    }
+                }
+                startNode = grid[Math.floor(cols / 4)][Math.floor(rows / 2)];
+                endNode = grid[Math.floor(cols * 3 / 4)][Math.floor(rows / 2)];
+                startNode.isStart = true;
+                endNode.isEnd = true;
+            }
+
+            function drawGrid() {
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        const node = grid[i][j];
+                        let color = COLORS.EMPTY;
+                        if (node.isStart) color = COLORS.START;
+                        else if (node.isEnd) color = COLORS.END;
+                        else if (node.isWall) color = COLORS.WALL;
+                        node.draw(color);
+                    }
+                }
+                // Draw grid lines
+                ctx.strokeStyle = COLORS.GRID;
+                for (let i = 0; i <= cols; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * cellSize, 0);
+                    ctx.lineTo(i * cellSize, height);
+                    ctx.stroke();
+                }
+                for (let j = 0; j <= rows; j++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, j * cellSize);
+                    ctx.lineTo(width, j * cellSize);
+                    ctx.stroke();
+                }
+            }
+            
+            function clearPath() {
+                 drawGrid(); // Redraws the grid to its state before search
+            }
+            
+            function clearBoard() {
+                createGrid();
+                drawGrid();
+            }
+
+            function getNeighbors(node) {
+                const neighbors = [];
+                const { i, j } = node;
+                if (i > 0) neighbors.push(grid[i - 1][j]);
+                if (i < cols - 1) neighbors.push(grid[i + 1][j]);
+                if (j > 0) neighbors.push(grid[i][j - 1]);
+                if (j < rows - 1) neighbors.push(grid[i][j + 1]);
+                return neighbors;
+            }
+
+            function heuristic(a, b) {
+                // Manhattan distance
+                return Math.abs(a.i - b.i) + Math.abs(a.j - b.j);
+            }
+
+            async function findPath() {
+                clearPath();
+                const openSet = [startNode];
+                const closedSet = [];
+
+                startNode.g = 0;
+                startNode.h = heuristic(startNode, endNode);
+                startNode.f = startNode.h;
+
+                while (openSet.length > 0) {
+                    let lowestIndex = 0;
+                    for (let i = 0; i < openSet.length; i++) {
+                        if (openSet[i].f < openSet[lowestIndex].f) {
+                            lowestIndex = i;
+                        }
+                    }
+                    let current = openSet[lowestIndex];
+
+                    if (current === endNode) {
+                        // Path found
+                        let path = [];
+                        let temp = current;
+                        path.push(temp);
+                        while (temp.parent) {
+                            path.push(temp.parent);
+                            temp = temp.parent;
+                        }
+                        path.reverse().forEach(node => {
+                            if (!node.isStart && !node.isEnd) {
+                                node.draw(COLORS.PATH);
+                            }
+                        });
+                        return; // Done
+                    }
+
+                    openSet.splice(lowestIndex, 1);
+                    closedSet.push(current);
+                    
+                    if (!current.isStart) current.draw(COLORS.CLOSED);
+
+                    const neighbors = getNeighbors(current);
+                    for (const neighbor of neighbors) {
+                        if (closedSet.includes(neighbor) || neighbor.isWall) {
+                            continue;
+                        }
+
+                        let tentativeG = current.g + 1;
+                        let newPath = false;
+                        if (openSet.includes(neighbor)) {
+                            if (tentativeG < neighbor.g) {
+                                neighbor.g = tentativeG;
+                                newPath = true;
+                            }
+                        } else {
+                            neighbor.g = tentativeG;
+                            openSet.push(neighbor);
+                            newPath = true;
+                        }
+                        
+                        if (newPath) {
+                            neighbor.h = heuristic(neighbor, endNode);
+                            neighbor.f = neighbor.g + neighbor.h;
+                            neighbor.parent = current;
+                            if(!neighbor.isEnd) neighbor.draw(COLORS.OPEN);
+                        }
+                    }
+                     await new Promise(r => setTimeout(r, 10)); // Animation delay
+                }
+                
+                // No path found
+                console.log("No path found!");
+            }
+            
+            // --- Event Listeners ---
+            function handleCanvasClick(e, isDragging = false) {
+                 const rect = canvas.getBoundingClientRect();
+                 const x = e.clientX - rect.left;
+                 const y = e.clientY - rect.top;
+                 const i = Math.floor(x / cellSize);
+                 const j = Math.floor(y / cellSize);
+                 
+                 if (i < 0 || i >= cols || j < 0 || j >= rows) return;
+                 
+                 const node = grid[i][j];
+
+                 if (currentTool === 'start' && !isDragging && !node.isEnd) {
+                     if(startNode) startNode.isStart = false;
+                     startNode = node;
+                     node.isStart = true;
+                 } else if (currentTool === 'end' && !isDragging && !node.isStart) {
+                     if(endNode) endNode.isEnd = false;
+                     endNode = node;
+                     node.isEnd = true;
+                 } else if (currentTool === 'wall' && !node.isStart && !node.isEnd) {
+                     node.isWall = true;
+                 } else if (currentTool === 'erase' && !node.isStart && !node.isEnd) {
+                     node.isWall = false;
+                 }
+                 drawGrid();
+            }
+            
+            canvas.addEventListener('mousedown', e => {
+                isDrawing = true;
+                handleCanvasClick(e);
+            });
+            canvas.addEventListener('mousemove', e => {
+                if (isDrawing) {
+                    handleCanvasClick(e, true);
+                }
+            });
+            window.addEventListener('mouseup', () => { isDrawing = false; });
+            
+            Object.entries(toolBtns).forEach(([key, btn]) => {
+                btn.addEventListener('click', () => {
+                    Object.values(toolBtns).forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTool = key;
+                });
+            });
+
+            actionBtns.findPath.addEventListener('click', findPath);
+            actionBtns.clearPath.addEventListener('click', clearPath);
+            actionBtns.clearBoard.addEventListener('click', clearBoard);
+            window.addEventListener('resize', setup);
+            
+            setup();
+        });
+    </script>
+</body>
+</html>

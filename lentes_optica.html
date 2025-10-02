@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Física | Simulador de Lentes y Óptica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-fira { font-family: 'Fira Code', monospace; }
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 8px; background: #4a5568; border-radius: 5px;
+            outline: none; opacity: 0.7; transition: opacity .2s;
+        }
+        input[type="range"]:hover { opacity: 1; }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 20px; height: 20px; background: #a3e635; /* lime-400 */
+            cursor: pointer; border-radius: 50%;
+        }
+        .btn-group button.active {
+            background-color: #a3e635;
+            color: #1e293b;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-6">
+            <a href="fisica.html" class="text-lime-400 hover:text-lime-300 transition duration-300">&larr; Volver a Física</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Simulador de Lentes y Óptica Geométrica</h1>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <div class="lg:col-span-3 bg-black rounded-xl border border-gray-700 shadow-2xl p-0 overflow-hidden">
+                <canvas id="opticsCanvas"></canvas>
+            </div>
+
+            <aside class="lg:col-span-1 bg-gray-800 p-4 rounded-xl border border-gray-700 h-fit">
+                <h3 class="text-xl font-bold text-lime-300 mb-4">Controles</h3>
+                
+                <div class="mb-4">
+                    <label class="block mb-2">Tipo de Lente</label>
+                    <div class="btn-group flex rounded-lg bg-gray-700">
+                        <button id="convex-btn" class="flex-1 p-2 rounded-l-lg active">Convergente</button>
+                        <button id="concave-btn" class="flex-1 p-2 rounded-r-lg">Divergente</button>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="focalLength" class="block mb-1">Distancia Focal: <span id="focal-label" class="font-bold">100</span> px</label>
+                    <input type="range" id="focalLength" min="50" max="200" value="100" step="5">
+                </div>
+                <div class="mb-6">
+                    <label for="objectHeight" class="block mb-1">Altura del Objeto: <span id="height-label" class="font-bold">50</span> px</label>
+                    <input type="range" id="objectHeight" min="10" max="150" value="50" step="5">
+                </div>
+
+                <div class="border-t border-gray-700 mt-6 pt-4">
+                    <h4 class="font-bold text-lg text-lime-300 mb-2">Propiedades de la Imagen</h4>
+                    <div id="image-properties" class="font-fira bg-gray-900 p-3 rounded-lg text-md leading-relaxed">
+                        <p>Tipo: <span id="type-prop">-</span></p>
+                        <p>Orientación: <span id="orient-prop">-</span></p>
+                        <p>Aumento: <span id="mag-prop">-</span>x</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+        
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-lime-300 mb-3">Trazado de Rayos Principales</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Para determinar dónde se forma una imagen, se trazan tres rayos principales desde la punta del objeto:
+                <br><strong>1. Rayo Paralelo (Rojo):</strong> Sale paralelo al eje óptico, se refracta en la lente y pasa por el foco imagen (F').
+                <br><strong>2. Rayo Focal (Verde):</strong> Pasa por el foco objeto (F), se refracta en la lente y sale paralelo al eje óptico.
+                <br><strong>3. Rayo Central (Azul):</strong> Pasa por el centro de la lente y no se desvía.
+                <br>La imagen se forma donde estos tres rayos (o sus proyecciones) se cruzan. ¡Arrastra el objeto (la flecha naranja) para ver cómo cambia todo!
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('opticsCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const controls = {
+                focalLength: document.getElementById('focalLength'),
+                objectHeight: document.getElementById('objectHeight'),
+                convexBtn: document.getElementById('convex-btn'),
+                concaveBtn: document.getElementById('concave-btn'),
+            };
+            const labels = {
+                focal: document.getElementById('focal-label'),
+                height: document.getElementById('height-label'),
+                type: document.getElementById('type-prop'),
+                orientation: document.getElementById('orient-prop'),
+                magnification: document.getElementById('mag-prop'),
+            };
+
+            let width, height, centerY, lensX;
+            let focalLength = 100;
+            let object = { x: -200, y: -50, height: 50 }; // y is position of base, height is positive
+            let lensType = 'convex';
+            let isDragging = false;
+            
+            function setupCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = 400; 
+                canvas.width = width;
+                canvas.height = height;
+                centerY = height / 2;
+                lensX = width / 2;
+                draw();
+            }
+            
+            function drawAxis() {
+                ctx.strokeStyle = '#4a5568';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(width, centerY);
+                ctx.stroke();
+            }
+
+            function drawLens() {
+                ctx.strokeStyle = '#a3e635';
+                ctx.lineWidth = 3;
+                
+                if (lensType === 'convex') {
+                    ctx.beginPath();
+                    ctx.moveTo(lensX, centerY - 100);
+                    ctx.quadraticCurveTo(lensX + 40, centerY, lensX, centerY + 100);
+                    ctx.moveTo(lensX, centerY - 100);
+                    ctx.quadraticCurveTo(lensX - 40, centerY, lensX, centerY + 100);
+                    ctx.stroke();
+                } else { // concave
+                    ctx.beginPath();
+                    ctx.moveTo(lensX - 15, centerY - 100);
+                    ctx.quadraticCurveTo(lensX + 15, centerY, lensX - 15, centerY + 100);
+                    ctx.moveTo(lensX + 15, centerY - 100);
+                    ctx.quadraticCurveTo(lensX - 15, centerY, lensX + 15, centerY + 100);
+                    ctx.stroke();
+                }
+
+                // Foci
+                ctx.fillStyle = '#a3e635';
+                ctx.beginPath();
+                ctx.arc(lensX - focalLength, centerY, 5, 0, Math.PI * 2); // F
+                ctx.fill();
+                ctx.fillText('F', lensX - focalLength - 5, centerY - 15);
+                ctx.beginPath();
+                ctx.arc(lensX + focalLength, centerY, 5, 0, Math.PI * 2); // F'
+                ctx.fill();
+                ctx.fillText("F'", lensX + focalLength - 5, centerY - 15);
+            }
+            
+            function drawObject() {
+                ctx.strokeStyle = '#f97316'; // orange-500
+                ctx.lineWidth = 4;
+                // Arrow body
+                ctx.beginPath();
+                ctx.moveTo(lensX + object.x, centerY);
+                ctx.lineTo(lensX + object.x, centerY - object.height);
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(lensX + object.x, centerY - object.height);
+                ctx.lineTo(lensX + object.x - 7, centerY - object.height + 10);
+                ctx.moveTo(lensX + object.x, centerY - object.height);
+                ctx.lineTo(lensX + object.x + 7, centerY - object.height + 10);
+                ctx.stroke();
+            }
+
+            function drawRaysAndImage() {
+                const So = -object.x; // object distance, positive
+                const Ho = object.height;
+                const f = (lensType === 'convex') ? focalLength : -focalLength;
+                
+                if (So === f) {
+                    // No image formed
+                    updateImageProperties('Infinita', '-', '-');
+                    return;
+                }
+
+                const Si = 1 / (1/f - 1/So); // image distance
+                const Hi = Ho * (Si / So); // image height
+                const M = Si / So;
+                
+                updateImageProperties(
+                    (Si > 0) ? 'Real' : 'Virtual',
+                    (Hi > 0) ? 'Derecha' : 'Invertida',
+                    M.toFixed(2)
+                );
+
+                const objTipX = lensX + object.x;
+                const objTipY = centerY - Ho;
+                const imgTipX = lensX + Si;
+                const imgTipY = centerY - Hi;
+                
+                // Ray 1: Parallel -> Focal
+                drawRay(objTipX, objTipY, lensX, objTipY, '#ef4444'); // red-500
+                if (Si > 0) { // Real image
+                    drawRay(lensX, objTipY, imgTipX, imgTipY, '#ef4444');
+                } else { // Virtual image
+                    drawRay(lensX, objTipY, lensX + (lensX - objTipX), objTipY - (imgTipY-objTipY), '#ef4444');
+                    drawRay(imgTipX, imgTipY, lensX, objTipY, '#ef4444', true); // dashed
+                }
+
+                // Ray 2: Focal -> Parallel
+                drawRay(objTipX, objTipY, lensX, centerY - (Hi/M), '#22c55e'); // green-500
+                drawRay(lensX, centerY - (Hi/M), lensX + width, centerY - (Hi/M), '#22c55e');
+                if (Si < 0) { // Virtual
+                    drawRay(imgTipX, imgTipY, objTipX, objTipY, '#22c55e', true);
+                }
+
+                // Ray 3: Central
+                drawRay(objTipX, objTipY, imgTipX, imgTipY, '#3b82f6'); // blue-500
+                if (Si < 0) {
+                    drawRay(imgTipX, imgTipY, lensX, centerY, '#3b82f6');
+                    drawRay(lensX, centerY, objTipX, objTipY, '#3b82f6', true);
+                }
+                
+                // Draw Image
+                ctx.strokeStyle = (Si > 0) ? '#84cc16' : '#a855f7'; // lime-500 for real, purple-500 for virtual
+                ctx.lineWidth = 4;
+                ctx.setLineDash((Si < 0) ? [10, 10] : []);
+                // Arrow body
+                ctx.beginPath();
+                ctx.moveTo(imgTipX, centerY);
+                ctx.lineTo(imgTipX, imgTipY);
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(imgTipX, imgTipY);
+                ctx.lineTo(imgTipX - 7, imgTipY + (Hi > 0 ? -10 : 10));
+                ctx.moveTo(imgTipX, imgTipY);
+                ctx.lineTo(imgTipX + 7, imgTipY + (Hi > 0 ? -10 : 10));
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            function drawRay(x1, y1, x2, y2, color, dashed = false) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash(dashed ? [5, 5] : []);
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            
+            function updateImageProperties(type, orientation, magnification) {
+                labels.type.textContent = type;
+                labels.orientation.textContent = orientation;
+                labels.magnification.textContent = magnification;
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+                drawAxis();
+                drawLens();
+                drawObject();
+                drawRaysAndImage();
+            }
+
+            function updateValues() {
+                focalLength = parseFloat(controls.focalLength.value);
+                object.height = parseFloat(controls.objectHeight.value);
+                labels.focal.textContent = `${focalLength.toFixed(0)}`;
+                labels.height.textContent = `${object.height.toFixed(0)}`;
+                draw();
+            }
+
+            // --- Event Listeners ---
+            controls.focalLength.addEventListener('input', updateValues);
+            controls.objectHeight.addEventListener('input', updateValues);
+            
+            controls.convexBtn.addEventListener('click', () => {
+                lensType = 'convex';
+                controls.convexBtn.classList.add('active');
+                controls.concaveBtn.classList.remove('active');
+                draw();
+            });
+            controls.concaveBtn.addEventListener('click', () => {
+                lensType = 'concave';
+                controls.concaveBtn.classList.add('active');
+                controls.convexBtn.classList.remove('active');
+                draw();
+            });
+            
+            canvas.addEventListener('mousedown', e => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const objScreenX = lensX + object.x;
+                
+                if (mouseX > objScreenX - 10 && mouseX < objScreenX + 10) {
+                    isDragging = true;
+                }
+            });
+
+            window.addEventListener('mousemove', e => {
+                if (!isDragging) return;
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                object.x = mouseX - lensX;
+                if (object.x > -10) object.x = -10; // Prevent object from crossing lens
+                draw();
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            window.addEventListener('resize', setupCanvas);
+            setupCanvas();
+        });
+    </script>
+</body>
+</html>

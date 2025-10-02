@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matemáticas | Graficador de Parábolas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #4a5568; /* gray-700 */
+            border-radius: 5px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #2dd4bf; /* teal-400 */
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #2dd4bf; /* teal-400 */
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Header -->
+        <header class="mb-6">
+            <a href="matematicas.html" class="text-teal-400 hover:text-teal-300 transition duration-300">&larr; Volver a Matemáticas</a>
+            <h1 class="text-3xl md:text-4xl font-black text-white mt-2">Graficador de Parábolas Interactivo</h1>
+        </header>
+
+        <!-- Main Content -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Simulation Canvas (takes 2/3 of the space on large screens) -->
+            <div class="lg:col-span-2 bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-2xl flex items-center justify-center">
+                <canvas id="parabolaCanvas"></canvas>
+            </div>
+
+            <!-- Controls and Data Panel (takes 1/3 of the space) -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-2xl flex flex-col space-y-6">
+                <!-- Equation Display -->
+                <div>
+                    <h3 class="text-xl font-bold text-teal-300 mb-2">Ecuación Cuadrática</h3>
+                    <p id="equation" class="text-2xl font-mono bg-gray-900 text-center py-3 rounded-lg">y = 1.00x² + 0.00x + 0.00</p>
+                </div>
+                
+                <!-- Sliders -->
+                <div class="space-y-4">
+                    <!-- 'a' slider -->
+                    <div>
+                        <label for="a-slider" class="flex justify-between items-center text-lg"><span>Coeficiente <span class="font-bold text-teal-400">a</span></span> <span id="a-value" class="font-mono bg-gray-700 px-2 py-1 rounded">1.00</span></label>
+                        <input id="a-slider" type="range" min="-5" max="5" value="1" step="0.05">
+                    </div>
+                    <!-- 'b' slider -->
+                    <div>
+                        <label for="b-slider" class="flex justify-between items-center text-lg"><span>Coeficiente <span class="font-bold text-teal-400">b</span></span> <span id="b-value" class="font-mono bg-gray-700 px-2 py-1 rounded">0.00</span></label>
+                        <input id="b-slider" type="range" min="-10" max="10" value="0" step="0.1">
+                    </div>
+                    <!-- 'c' slider -->
+                    <div>
+                        <label for="c-slider" class="flex justify-between items-center text-lg"><span>Coeficiente <span class="font-bold text-teal-400">c</span></span> <span id="c-value" class="font-mono bg-gray-700 px-2 py-1 rounded">0.00</span></label>
+                        <input id="c-slider" type="range" min="-10" max="10" value="0" step="0.1">
+                    </div>
+                </div>
+
+                <!-- Calculated Data -->
+                <div>
+                    <h3 class="text-xl font-bold text-teal-300 mb-3 border-t border-gray-700 pt-4">Puntos Clave</h3>
+                    <div class="space-y-2 font-mono text-lg bg-gray-900 p-4 rounded-lg">
+                        <p>Vértice: <span id="vertex-value" class="text-yellow-400"></span></p>
+                        <p>Foco: <span id="focus-value" class="text-purple-400"></span></p>
+                        <p>Raíces (x): <span id="roots-value" class="text-red-400"></span></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Instructions Section -->
+        <section class="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h3 class="text-2xl font-bold text-teal-300 mb-3">¿Cómo funciona?</h3>
+            <p class="text-gray-300 leading-relaxed">
+                Utiliza los deslizadores para cambiar los valores de los coeficientes <span class="font-bold text-teal-400">a, b, y c</span> en la ecuación `y = ax² + bx + c`.
+                <br>
+                • El coeficiente <span class="font-bold">'a'</span> controla la apertura y dirección de la parábola. ¿Qué pasa si es negativo? ¿Y si es cero?
+                <br>
+                • El coeficiente <span class="font-bold">'b'</span> desplaza la parábola horizontal y verticalmente.
+                <br>
+                • El coeficiente <span class="font-bold">'c'</span> es el punto de corte con el eje Y. Compruébalo.
+            </p>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Canvas and context
+            const canvas = document.getElementById('parabolaCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Sliders and value displays
+            const aSlider = document.getElementById('a-slider');
+            const bSlider = document.getElementById('b-slider');
+            const cSlider = document.getElementById('c-slider');
+            const aValueSpan = document.getElementById('a-value');
+            const bValueSpan = document.getElementById('b-value');
+            const cValueSpan = document.getElementById('c-value');
+
+            // Data displays
+            const equationEl = document.getElementById('equation');
+            const vertexEl = document.getElementById('vertex-value');
+            const focusEl = document.getElementById('focus-value');
+            const rootsEl = document.getElementById('roots-value');
+
+            let width, height, centerX, centerY;
+            let scale = 40; // Pixels per unit
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                width = container.clientWidth;
+                height = width * 0.8; // Maintain aspect ratio
+                canvas.width = width;
+                canvas.height = height;
+                centerX = width / 2;
+                centerY = height / 2;
+                updateAndDraw();
+            }
+
+            function drawGrid() {
+                ctx.strokeStyle = '#374151'; // gray-700
+                ctx.lineWidth = 1;
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#6b7280'; // gray-500
+
+                // Vertical lines and labels
+                for (let x = centerX + scale; x < width; x += scale) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                    ctx.fillText((x - centerX) / scale, x + 5, centerY + 15);
+                }
+                for (let x = centerX - scale; x > 0; x -= scale) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                    ctx.fillText((x - centerX) / scale, x + 5, centerY + 15);
+                }
+
+                // Horizontal lines and labels
+                for (let y = centerY + scale; y < height; y += scale) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                    ctx.fillText(-(y - centerY) / scale, centerX + 5, y + 15);
+                }
+                 for (let y = centerY - scale; y > 0; y -= scale) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                    ctx.fillText(-(y - centerY) / scale, centerX + 5, y + 15);
+                }
+
+                // Axes
+                ctx.strokeStyle = '#6b7280'; // gray-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, centerY);
+                ctx.lineTo(width, centerY);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, height);
+                ctx.stroke();
+            }
+
+            function drawParabola(a, b, c) {
+                ctx.strokeStyle = '#2dd4bf'; // teal-400
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                
+                let isFirstPoint = true;
+                for (let px = 0; px < width; px++) {
+                    const x = (px - centerX) / scale;
+                    const y = (a * x * x) + (b * x) + c;
+                    const py = centerY - y * scale;
+                    
+                    if (py > -10 && py < height + 10) { // Only draw points within a reasonable viewport
+                        if (isFirstPoint) {
+                            ctx.moveTo(px, py);
+                            isFirstPoint = false;
+                        } else {
+                            ctx.lineTo(px, py);
+                        }
+                    } else {
+                         isFirstPoint = true;
+                    }
+                }
+                ctx.stroke();
+            }
+
+            function drawPoint(x, y, color, label) {
+                const px = centerX + x * scale;
+                const py = centerY - y * scale;
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.fillStyle = color;
+                ctx.font = '14px Inter';
+                ctx.fillText(label, px + 10, py - 10);
+            }
+
+
+            function updateAndDraw() {
+                const a = parseFloat(aSlider.value);
+                const b = parseFloat(bSlider.value);
+                const c = parseFloat(cSlider.value);
+
+                aValueSpan.textContent = a.toFixed(2);
+                bValueSpan.textContent = b.toFixed(2);
+                cValueSpan.textContent = c.toFixed(2);
+
+                const signB = b >= 0 ? '+' : '-';
+                const signC = c >= 0 ? '+' : '-';
+                equationEl.innerHTML = `y = ${a.toFixed(2)}x² ${signB} ${Math.abs(b).toFixed(2)}x ${signC} ${Math.abs(c).toFixed(2)}`;
+
+                ctx.clearRect(0, 0, width, height);
+                drawGrid();
+
+                if (Math.abs(a) < 0.01) { // It's a line
+                    drawParabola(0, b, c); // Draw as a line
+                    vertexEl.textContent = 'N/A (es una línea)';
+                    focusEl.textContent = 'N/A';
+                    rootsEl.textContent = b !== 0 ? (-c / b).toFixed(2) : (c === 0 ? "Infinitas" : "Ninguna");
+                    return;
+                }
+
+                drawParabola(a, b, c);
+                
+                // Calculations
+                const vx = -b / (2 * a);
+                const vy = a * vx * vx + b * vx + c;
+                vertexEl.textContent = `(${vx.toFixed(2)}, ${vy.toFixed(2)})`;
+                drawPoint(vx, vy, '#facc15', 'Vértice'); // yellow-400
+
+                const fx = vx;
+                const fy = vy + 1 / (4 * a);
+                focusEl.textContent = `(${fx.toFixed(2)}, ${fy.toFixed(2)})`;
+                drawPoint(fx, fy, '#c084fc', 'Foco'); // purple-400
+
+                const discriminant = b * b - 4 * a * c;
+                if (discriminant < 0) {
+                    rootsEl.textContent = 'Ninguna';
+                } else if (discriminant === 0) {
+                    const root = -b / (2 * a);
+                    rootsEl.textContent = root.toFixed(2);
+                    drawPoint(root, 0, '#f87171', 'Raíz'); // red-400
+                } else {
+                    const root1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+                    const root2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+                    rootsEl.textContent = `${root1.toFixed(2)}, ${root2.toFixed(2)}`;
+                    drawPoint(root1, 0, '#f87171', 'Raíz 1'); // red-400
+                    drawPoint(root2, 0, '#f87171', 'Raíz 2'); // red-400
+                }
+            }
+            
+            aSlider.addEventListener('input', updateAndDraw);
+            bSlider.addEventListener('input', updateAndDraw);
+            cSlider.addEventListener('input', updateAndDraw);
+            window.addEventListener('resize', resizeCanvas);
+
+            resizeCanvas();
+        });
+    </script>
+</body>
+</html>
